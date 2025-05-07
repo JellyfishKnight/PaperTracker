@@ -2,7 +2,7 @@
 <template>
     <div class="main-window">
       <div class="logo-container">
-        <img class="logo" src="" alt="PaperTrack Logo" />
+        <img class="logo" alt="PaperTrack Logo" src="../assets/logo.png" />
       </div>
       
       <div class="buttons-container">
