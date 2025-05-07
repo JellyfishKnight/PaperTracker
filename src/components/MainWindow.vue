@@ -1,31 +1,43 @@
 <!-- MainWindow.vue -->
 <template>
-    <div class="main-window">
+    <div class="main-content">
+      <!-- Logo区域 -->
       <div class="logo-container">
         <img class="logo" alt="PaperTrack Logo" src="../assets/logo.png" />
       </div>
       
-      <div class="buttons-container">
-        <button class="tracker-button" @click="$emit('open-face-tracker')">面捕界面</button>
-        <button class="tracker-button" @click="$emit('open-eye-tracker')">眼追界面</button>
+      <div class="main-actions">
+        <button class="action-button" @click="openEyeTrackerInstructions">
+          眼追使用说明
+        </button>
+        <button class="action-button" @click="openFaceTrackerInstructions">
+          面捕使用说明
+        </button>
+        <button class="action-button" @click="checkForUpdates">
+          检查更新
+        </button>
       </div>
-      
-      <div class="additional-controls">
-        <button class="update-button" @click="checkForUpdates">客户端更新检查</button>
-        
-        <div class="instructions">
-          <a href="#" class="instruction-link" @click="openFaceTrackerInstructions">
-            点击查看面捕说明书
-          </a>
-          <a href="#" class="instruction-link" @click="openEyeTrackerInstructions">
-            点击查看眼追说明书
-          </a>
+  
+      <div class="info-section">
+        <div class="version-info">
+          <span class="info-label">当前版本：</span>
+          <span>1.0.0</span>
         </div>
         
-        <button class="restart-button" @click="restartVRCFT">重启VRCFT</button>
+        <div class="update-log">
+          <span class="info-label">更新日志：</span>
+          <div class="log-content">
+            <p>系统启动中...</p>
+            <p>连接设备...</p>
+          </div>
+        </div>
         
-        <div class="status-label">
-          {{ serverStatus }}
+        <div class="action-container">
+          <button class="restart-button" @click="restartVRCFT">重启VRCFT</button>
+          
+          <div class="status-label">
+            {{ serverStatus }}
+          </div>
         </div>
       </div>
     </div>
@@ -58,13 +70,9 @@
   </script>
   
   <style scoped>
-  .main-window {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    width: 100%;
-    max-width: 600px;
+  .main-content {
+    max-width: 800px;
+    margin: 0 auto;
     padding: 20px;
   }
   
@@ -74,7 +82,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 20px;
+    margin-bottom: 30px;
   }
   
   .logo {
@@ -82,56 +90,58 @@
     max-height: 100%;
   }
   
-  .buttons-container {
+  .main-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 30px;
+  }
+  
+  .action-button {
+    padding: 20px;
+    height: 100px;
     display: flex;
-    justify-content: space-between;
-    width: 100%;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+  }
+  
+  .info-section {
+    background-color: var(--widget-background);
+    padding: 20px;
+    border-radius: 8px;
+  }
+  
+  .version-info, .update-log {
     margin-bottom: 20px;
   }
   
-  .tracker-button {
-    width: 48%;
-    height: 80px;
-    font-size: 1.2rem;
+  .info-label {
+    font-weight: bold;
+    margin-right: 10px;
   }
   
-  .additional-controls {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
+  .log-content {
+    margin-top: 10px;
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    border-radius: 4px;
+    max-height: 150px;
+    overflow-y: auto;
   }
   
-  .update-button {
-    width: 200px;
-    height: 50px;
-  }
-  
-  .instructions {
+  .action-container {
     display: flex;
     justify-content: space-between;
-    width: 100%;
-    padding: 0 20px;
-  }
-  
-  .instruction-link {
-    color: white;
-    font-size: 1.1rem;
-    font-weight: bold;
-    font-style: italic;
-    text-decoration: none;
+    align-items: center;
   }
   
   .restart-button {
-    width: 200px;
-    height: 50px;
+    width: 150px;
   }
   
   .status-label {
     font-style: italic;
     font-weight: bold;
-    margin-top: 10px;
-    text-align: center;
   }
   </style>

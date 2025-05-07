@@ -1,9 +1,20 @@
 <!-- FaceTrackerWindow.vue -->
 <template>
     <div class="face-tracker-window">
-      <div class="nav-bar">
-        <button @click="$emit('back-to-main')">主页面</button>
-        <button @click="currentPage = 'calibration'">标定页面</button>
+      <!-- 子导航栏 -->
+      <div class="sub-nav-bar">
+        <button 
+          :class="{ active: currentPage === 'main' }"
+          @click="currentPage = 'main'"
+        >
+          主界面
+        </button>
+        <button
+          :class="{ active: currentPage === 'calibration' }"
+          @click="currentPage = 'calibration'"
+        >
+          标定界面
+        </button>
         
         <div class="status-labels">
           <span class="status-label">{{ wifiStatus }}</span>
@@ -11,7 +22,7 @@
         </div>
       </div>
   
-      <!-- Main page content -->
+      <!-- 主页面内容 -->
       <div v-if="currentPage === 'main'" class="page-content">
         <div class="image-section">
           <div class="camera-view no-image">
@@ -93,7 +104,7 @@
         </div>
       </div>
   
-      <!-- Calibration page content -->
+      <!-- 标定页面内容 -->
       <div v-if="currentPage === 'calibration'" class="page-content calibration-page">
         <div class="magnification-control">
           <label>放大倍率</label>
@@ -104,7 +115,7 @@
         <div class="tracking-controls">
           <div class="scroll-container">
             <div class="tracking-parameters">
-              <!-- Left cheek controls -->
+              <!-- 左脸颊控制 -->
               <div class="parameter-row">
                 <label>左脸颊</label>
                 <div class="slider" @click="updateCalibrationSlider($event, 'cheekLeft')">
@@ -116,7 +127,7 @@
                 </div>
               </div>
   
-              <!-- Right cheek controls -->
+              <!-- 右脸颊控制 -->
               <div class="parameter-row">
                 <label>右脸颊</label>
                 <div class="slider" @click="updateCalibrationSlider($event, 'cheekRight')">
@@ -128,8 +139,7 @@
                 </div>
               </div>
   
-              <!-- Additional parameters: jaw, mouth, tongue controls would go here -->
-              <!-- I'm showing just a few as examples -->
+              <!-- 更多参数：下巴，嘴，舌头控制 -->
               <div class="parameter-row">
                 <label>下巴下移</label>
                 <div class="slider" @click="updateCalibrationSlider($event, 'jawOpen')">
@@ -152,7 +162,39 @@
                 </div>
               </div>
   
-              <!-- More parameters would be added here -->
+              <!-- 可以根据需要添加更多参数行 -->
+              <div class="parameter-row">
+                <label>下巴右移</label>
+                <div class="slider" @click="updateCalibrationSlider($event, 'jawRight')">
+                  <div class="track" :style="{ width: calibration.jawRight + '%' }"></div>
+                  <div class="thumb" :style="{ left: calibration.jawRight + '%' }"></div>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-bar-fill" :style="{ width: calibration.jawRight + '%' }"></div>
+                </div>
+              </div>
+  
+              <div class="parameter-row">
+                <label>嘴左移</label>
+                <div class="slider" @click="updateCalibrationSlider($event, 'mouthLeft')">
+                  <div class="track" :style="{ width: calibration.mouthLeft + '%' }"></div>
+                  <div class="thumb" :style="{ left: calibration.mouthLeft + '%' }"></div>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-bar-fill" :style="{ width: calibration.mouthLeft + '%' }"></div>
+                </div>
+              </div>
+  
+              <div class="parameter-row">
+                <label>嘴右移</label>
+                <div class="slider" @click="updateCalibrationSlider($event, 'mouthRight')">
+                  <div class="track" :style="{ width: calibration.mouthRight + '%' }"></div>
+                  <div class="thumb" :style="{ left: calibration.mouthRight + '%' }"></div>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-bar-fill" :style="{ width: calibration.mouthRight + '%' }"></div>
+                </div>
+              </div>
             </div>
           </div>
   
@@ -170,34 +212,34 @@
   <script setup>
   import { ref, reactive } from 'vue';
   
-  // Page state
+  // 页面状态
   const currentPage = ref('main');
   
-  // Status indicators
+  // 状态指示器
   const wifiStatus = ref('面捕wifi未连接');
   const serialStatus = ref('面捕数据线未连接');
   const ipAddress = ref('');
   
-  // Camera feeds
+  // 相机画面
   const cameraImage = ref(null);
   const calibrationImage = ref(null);
   
-  // Form inputs
+  // 表单输入
   const ssid = ref('');
   const password = ref('');
   
-  // Slider values
+  // 滑块值
   const brightness = ref(50);
-  const rotation = ref(540); // Middle value of 0-1080 range
+  const rotation = ref(540); // 0-1080范围的中间值
   
-  // Options
+  // 选项
   const energyMode = ref('normal');
   const useFilter = ref(false);
   
-  // Log content
+  // 日志内容
   const logContent = ref('系统启动中...\n连接设备...');
   
-  // Calibration values
+  // 校准值
   const calibration = reactive({
     cheekLeft: 24,
     cheekRight: 24,
@@ -213,20 +255,20 @@
     tongueRight: 24
   });
   
-  // Methods
+  // 方法
   function sendWifiSettings() {
     logContent.value += `\n正在发送WiFi设置：${ssid.value}...`;
-    // Implement actual sending logic
+    // 实现实际发送逻辑
   }
   
   function flashFirmware() {
     logContent.value += '\n开始刷写固件...';
-    // Implement firmware flashing logic
+    // 实现固件刷写逻辑
   }
   
   function restartDevice() {
     logContent.value += '\n重启设备...';
-    // Implement restart logic
+    // 实现重启逻辑
   }
   
   function updateSlider(event, sliderName) {
@@ -237,7 +279,7 @@
     if (sliderName === 'brightness') {
       brightness.value = percentage;
     } else if (sliderName === 'rotation') {
-      rotation.value = percentage * 10.8; // Scale to 0-1080 range
+      rotation.value = percentage * 10.8; // 缩放到0-1080范围
     }
   }
   
@@ -250,7 +292,7 @@
   }
   
   function showSerialLog() {
-    // Show serial log
+    // 显示串口日志
     alert('显示串口日志');
   }
   </script>
@@ -263,15 +305,23 @@
     flex-direction: column;
   }
   
-  .nav-bar {
+  .sub-nav-bar {
     display: flex;
     align-items: center;
     margin-bottom: 20px;
-    padding: 10px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
   }
   
-  .nav-bar button {
+  .sub-nav-bar button {
     margin-right: 15px;
+    padding: 8px 12px;
+    border-bottom: 2px solid transparent;
+  }
+  
+  .sub-nav-bar button.active {
+    border-bottom-color: var(--highlight-color);
+    color: var(--highlight-color);
   }
   
   .status-labels {
@@ -404,7 +454,7 @@
     resize: none;
   }
   
-  /* Calibration page styles */
+  /* 标定页面样式 */
   .calibration-page {
     display: flex;
     flex-direction: column;

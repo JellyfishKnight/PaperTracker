@@ -1,9 +1,20 @@
 <!-- EyeTrackerWindow.vue -->
 <template>
     <div class="eye-tracker-window">
-      <div class="nav-bar">
-        <button @click="$emit('back-to-main')">主页面</button>
-        <button @click="currentPage = 'settings'">设置</button>
+      <!-- 子导航栏 -->
+      <div class="sub-nav-bar">
+        <button 
+          :class="{ active: currentPage === 'tracking' }"
+          @click="currentPage = 'tracking'"
+        >
+          追踪界面
+        </button>
+        <button 
+          :class="{ active: currentPage === 'settings' }"
+          @click="currentPage = 'settings'"
+        >
+          设置界面
+        </button>
         
         <div class="status-labels">
           <span class="status-label">{{ serialStatus }}</span>
@@ -12,10 +23,10 @@
         </div>
       </div>
   
-      <!-- Main tracking page content -->
+      <!-- 主追踪页面内容 -->
       <div v-if="currentPage === 'tracking'" class="page-content">
         <div class="eye-tracking-container">
-          <!-- Left eye section -->
+          <!-- 左眼部分 -->
           <div class="eye-section">
             <h2>左眼跟踪</h2>
             
@@ -25,7 +36,7 @@
             </div>
             
             <div class="eye-position-frame">
-              <!-- This would contain a canvas or visualization -->
+              <!-- 这里将包含画布或可视化 -->
             </div>
             
             <div class="eye-openness">
@@ -39,7 +50,7 @@
             </div>
           </div>
   
-          <!-- Right eye section -->
+          <!-- 右眼部分 -->
           <div class="eye-section">
             <h2>右眼跟踪</h2>
             
@@ -49,7 +60,7 @@
             </div>
             
             <div class="eye-position-frame">
-              <!-- This would contain a canvas or visualization -->
+              <!-- 这里将包含画布或可视化 -->
             </div>
             
             <div class="eye-openness">
@@ -65,7 +76,7 @@
         </div>
       </div>
   
-      <!-- Settings page content -->
+      <!-- 设置页面内容 -->
       <div v-if="currentPage === 'settings'" class="page-content settings-page">
         <div class="camera-views">
           <div class="eye-image left-eye">
@@ -171,74 +182,74 @@
   <script setup>
   import { ref } from 'vue';
   
-  // Page state
+  // 页面状态
   const currentPage = ref('tracking');
   
-  // Status indicators
+  // 状态指示器
   const serialStatus = ref('当前无串口连接');
   const leftEyeWifiStatus = ref('左眼WIFI未连接');
   const rightEyeWifiStatus = ref('右眼WIFI未连接');
   
-  // Camera feeds
+  // 相机画面
   const leftEyeImage = ref(null);
   const rightEyeImage = ref(null);
   
-  // Form inputs
+  // 表单输入
   const ssid = ref('');
   const password = ref('');
   const leftEyeIP = ref('');
   const rightEyeIP = ref('');
   
-  // Progress indicators
-  const leftEyeOpenness = ref(0);
-  const rightEyeOpenness = ref(0);
+  // 进度指示器
+  const leftEyeOpenness = ref(30);
+  const rightEyeOpenness = ref(70);
   
-  // Slider values
+  // 滑块值
   const leftBrightness = ref(50);
   const rightBrightness = ref(50);
-  const leftRotation = ref(540); // Middle value of 0-1080 range
-  const rightRotation = ref(540); // Middle value of 0-1080 range
+  const leftRotation = ref(540); // 0-1080范围的中间值
+  const rightRotation = ref(540); // 0-1080范围的中间值
   
-  // Options
+  // 选项
   const energyMode = ref('normal');
   
-  // Log content
+  // 日志内容
   const logContent = ref('系统启动中...\n连接设备...');
   
-  // Methods
+  // 方法
   function calibrateLeftEye() {
     logContent.value += '\n开始左眼校准...';
-    // Implement left eye calibration logic
+    // 实现左眼校准逻辑
   }
   
   function centerLeftEye() {
     logContent.value += '\n设置左眼中心...';
-    // Implement left eye centering logic
+    // 实现左眼中心逻辑
   }
   
   function calibrateRightEye() {
     logContent.value += '\n开始右眼校准...';
-    // Implement right eye calibration logic
+    // 实现右眼校准逻辑
   }
   
   function centerRightEye() {
     logContent.value += '\n设置右眼中心...';
-    // Implement right eye centering logic
+    // 实现右眼中心逻辑
   }
   
   function sendWifiSettings() {
     logContent.value += `\n正在发送WiFi设置：${ssid.value}...`;
-    // Implement actual sending logic
+    // 实现实际发送逻辑
   }
   
   function flashFirmware() {
     logContent.value += '\n开始刷写固件...';
-    // Implement firmware flashing logic
+    // 实现固件刷写逻辑
   }
   
   function restartDevice() {
     logContent.value += '\n重启设备...';
-    // Implement restart logic
+    // 实现重启逻辑
   }
   
   function updateSlider(event, sliderName) {
@@ -254,10 +265,10 @@
         rightBrightness.value = percentage;
         break;
       case 'leftRotation':
-        leftRotation.value = percentage * 10.8; // Scale to 0-1080 range
+        leftRotation.value = percentage * 10.8; // 缩放到0-1080范围
         break;
       case 'rightRotation':
-        rightRotation.value = percentage * 10.8; // Scale to 0-1080 range
+        rightRotation.value = percentage * 10.8; // 缩放到0-1080范围
         break;
     }
   }
@@ -271,15 +282,23 @@
     flex-direction: column;
   }
   
-  .nav-bar {
+  .sub-nav-bar {
     display: flex;
     align-items: center;
     margin-bottom: 20px;
-    padding: 10px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
   }
   
-  .nav-bar button {
+  .sub-nav-bar button {
     margin-right: 15px;
+    padding: 8px 12px;
+    border-bottom: 2px solid transparent;
+  }
+  
+  .sub-nav-bar button.active {
+    border-bottom-color: var(--highlight-color);
+    color: var(--highlight-color);
   }
   
   .status-labels {
@@ -294,7 +313,7 @@
     gap: 20px;
   }
   
-  /* Eye tracking page styles */
+  /* 眼部追踪页面样式 */
   .eye-tracking-container {
     display: flex;
     flex-wrap: wrap;
@@ -335,7 +354,7 @@
     gap: 5px;
   }
   
-  /* Settings page styles */
+  /* 设置页面样式 */
   .settings-page {
     display: grid;
     grid-template-columns: 1fr;
@@ -352,16 +371,6 @@
   .eye-image {
     width: 261px;
     height: 261px;
-  }
-  
-  .no-image {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #333;
-    color: #aaa;
   }
   
   .settings-controls {
@@ -415,13 +424,6 @@
     align-items: center;
     gap: 10px;
     margin-top: 10px;
-  }
-  
-  .mode-selector select {
-    padding: 5px;
-    background-color: var(--widget-background);
-    color: var(--text-color);
-    border: 1px solid #3a3a3a;
   }
   
   .brightness-controls, .rotation-controls {
