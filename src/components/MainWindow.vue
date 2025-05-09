@@ -21,15 +21,14 @@
       <div class="info-section">
         <div class="version-info">
           <span class="info-label">当前版本：</span>
-          <div class="version-content">
-            {{ currentVersion }}
-          </div>
+          <span>{{ currentVersion || '加载中...' }}</span>
         </div>
         
         <div class="update-log">
           <span class="info-label">更新日志：</span>
           <div class="log-content">
-            {{ updateLog }}
+            <p v-if="updateLog">{{ updateLog }}</p>
+            <p v-else>加载中...</p>
           </div>
         </div>
         
@@ -52,29 +51,34 @@
   const serverStatus = ref('无法连接到服务器，请检查网络');
   const currentVersion = ref('获取本地版本失败');
   const updateLog = ref('无法连接到服务器，请检查网络');
-  
+  const hasCheckedUpdate = ref(false);
+
   function checkForUpdates() {
-    // Implement update checking logic
+    // 执行更新检查逻辑
     invoke('check_for_updates').then((result) => {
       messageService.info("检查到可用更新如下：\n当前版本: " + 
-        result.local_version + "\n最新版本: " + 
-        result.remote_version + "\n更新日志: " +
-        result.release_notes);
+      result.local_version + "\n最新版本: " + 
+      result.remote_version + "\n更新日志: " +
+      result.release_notes);
       serverStatus.value = '检查到可用更新';
-      // extract version from result
+      // 更新版本信息
       currentVersion.value = result.local_version;
       updateLog.value = result.release_notes;
     }).catch((error) => {
-      messageService.error("检查更新失败，请稍后再试。\n" + error);
+      messageService.error("检查更新失败，请稍后再试。");
       serverStatus.value = '无法连接到服务器，请检查网络';
-      currentVersion.value = '获取本地版本失败';
-      updateLog.value = '无法连接到服务器，请检查网络';
     });
+    
+    // 在函数完成后，不论成功或失败，都设置标志位为true
+    hasCheckedUpdate.value = true;
   }
 
   onMounted(() => {
-    checkForUpdates();
-  })
+    // 只有在第一次挂载且未检查过更新时才执行检查
+    if (!hasCheckedUpdate.value) {
+      checkForUpdates();
+    }
+  });
   
   function openFaceTrackerInstructions() {
     // Open face tracker instructions

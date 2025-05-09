@@ -1,9 +1,9 @@
 <!-- App.vue -->
 <template>
   <AppLayout v-model:activePage="activePage">
-    <MainWindow v-if="activePage === 'main'" />
-    <EyeTrackerWindow v-if="activePage === 'eye'" />
-    <FaceTrackerWindow v-if="activePage === 'face'" />
+    <MainWindow v-show="activePage === 'main'" />
+    <EyeTrackerWindow v-show="activePage === 'eye'" />
+    <FaceTrackerWindow v-show="activePage === 'face'" />
   </AppLayout>
 </template>
 
@@ -16,7 +16,3 @@ import FaceTrackerWindow from './components/FaceTrackerWindow.vue';
 
 const activePage = ref('main');
 </script>
-
-<style>
-/* 可以在这里添加全局样式 */
-</style>
