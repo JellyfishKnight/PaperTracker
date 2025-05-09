@@ -21,14 +21,15 @@
       <div class="info-section">
         <div class="version-info">
           <span class="info-label">当前版本：</span>
-          <span>1.0.0</span>
+          <div class="version-content">
+            {{ currentVersion }}
+          </div>
         </div>
         
         <div class="update-log">
           <span class="info-label">更新日志：</span>
           <div class="log-content">
-            <p>系统启动中...</p>
-            <p>连接设备...</p>
+            {{ updateLog }}
           </div>
         </div>
         
@@ -49,15 +50,25 @@
   import { openUrl } from '@tauri-apps/plugin-opener';
   import messageService from '../functional/pop_window/messageService';
   const serverStatus = ref('无法连接到服务器，请检查网络');
+  const currentVersion = ref('获取本地版本失败');
+  const updateLog = ref('无法连接到服务器，请检查网络');
   
   function checkForUpdates() {
     // Implement update checking logic
     invoke('check_for_updates').then((result) => {
-      messageService.info("检查到可用更新如下：\n" + result);
+      messageService.info("检查到可用更新如下：\n当前版本: " + 
+        result.local_version + "\n最新版本: " + 
+        result.remote_version + "\n更新日志: " +
+        result.release_notes);
       serverStatus.value = '检查到可用更新';
+      // extract version from result
+      currentVersion.value = result.local_version;
+      updateLog.value = result.release_notes;
     }).catch((error) => {
-      messageService.error("检查更新失败，请稍后再试。");
+      messageService.error("检查更新失败，请稍后再试。\n" + error);
       serverStatus.value = '无法连接到服务器，请检查网络';
+      currentVersion.value = '获取本地版本失败';
+      updateLog.value = '无法连接到服务器，请检查网络';
     });
   }
   

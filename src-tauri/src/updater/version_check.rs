@@ -1,3 +1,4 @@
+use serde::Serialize;
 use tauri::{AppHandle, Manager, Runtime};
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -24,7 +25,7 @@ pub struct VersionInfo {
 }
 
 #[tauri::command]
-pub fn check_for_updates<R: Runtime>(app: AppHandle<R>) -> Result<String, String>{
+pub fn check_for_updates<R: Runtime>(app: AppHandle<R>) -> Result<UpdateInfo, String>{
     let local_version = match get_local_version("assets/version.json", app) {
         Some(content) => content,
         None => {
@@ -41,8 +42,11 @@ pub fn check_for_updates<R: Runtime>(app: AppHandle<R>) -> Result<String, String
         }
     };    
     println!("远程版本: {}", remote_version.value.version);
-    Ok(format!("本地版本: {}\n远程版本: {}\n更新日志: {}", 
-        local_version.value.version, remote_version.value.version, remote_version.value.description))
+    Ok(UpdateInfo {
+        remote_version: remote_version.value.version,
+        local_version: local_version.value.version,
+        release_notes: remote_version.value.description
+    })
 }
 
 pub fn get_local_version<R: Runtime>(version_path: &str, app: AppHandle<R>) -> Option<VersionInfo> {

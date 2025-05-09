@@ -24,7 +24,7 @@
     </div>
 
     <!-- 主追踪页面内容 -->
-    <div v-if="currentPage === 'tracking'" class="page-content">
+    <div v-if="currentPage === 'settings'" class="page-content">
       <div class="eye-tracking-layout">
         <!-- 左眼部分 -->
         <div class="eye-section">
@@ -81,7 +81,7 @@
     </div>
 
     <!-- 设置页面内容 -->
-    <div v-if="currentPage === 'settings'" class="page-content settings-page">
+    <div v-if="currentPage === 'tracking'" class="page-content settings-page">
       <div class="settings-layout">
         <div class="left-column">
           <div class="camera-views">
