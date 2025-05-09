@@ -1,15 +1,14 @@
-use std::{os::macos, sync::{Arc, Mutex}};
-
 use serialport::{self, DataBits, FlowControl, Parity, SerialPort, StopBits};
 use tauri::window;
+use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Esp32Status {
     Connected,
     Disconnected,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub enum PacketType {
     WifiSetup,
     WifiSsidPwd(String, String),
@@ -34,9 +33,10 @@ pub struct Esp32Serial {
     pub parity: Parity,
     pub flow_control: FlowControl,
     pub builder: serialport::SerialPortBuilder,
-    pub callback: Option<fn(&str)>,
+    pub callbacks: HashMap<PacketType, fn(PacketType)>,
     pub status: Esp32Status,
-    pub handle: Option<Arc<Mutex<Box<dyn SerialPort + 'static>>>>,
+    pub handle: Option<Box<dyn SerialPort + 'static>>,
+    pub run: bool,
 }
 
 impl Esp32Serial {
@@ -55,21 +55,22 @@ impl Esp32Serial {
             parity,
             flow_control,
             builder,
-            callback: None,
+            callbacks: HashMap::new(),
             status: Esp32Status::Disconnected,
             handle: None,
+            run: false,
         }
     }
 
-    pub fn add_callback(&mut self, callback: fn(&str)) {
+    pub fn add_callback(&mut self, callback: fn(PacketType)) {
         // Add a callback to the serial port
         // This is a placeholder for the actual implementation
-        self.callback = Some(callback);
+        self.callbacks.insert(PacketType::Unknown, callback);
     }
 
     pub fn open(&mut self) -> Result<(), String> {
         if let Ok(port) = self.builder.clone().open() {
-            self.handle = Some(Arc::new(Mutex::new(port)));
+            self.handle = Some(port);
             self.status = Esp32Status::Connected;
             println!("Serial port opened: {}", self.port);
         } else {
@@ -79,31 +80,35 @@ impl Esp32Serial {
         Ok(())
     }
 
-    pub fn start(&self) {
-            // Start the serial port
-            if let Some(callback) = self.callback {
-                callback("Serial port started");
-            } else {
-                panic!("No callback set");
-            }
-    
-            if let Some(handle) = &self.handle {
-                let handle_clone = Arc::clone(handle);
-                let _ = std::thread::spawn(move || {
-                    loop {
-                        let data: String;
-                        if let Ok(mut handle_tmp) = handle_clone.lock() {
-
-                        } else {
-                            std::thread::sleep(std::time::Duration::from_secs(1));
+    pub fn start(&mut self) {
+        self.run = true;
+        // Start the serial port
+        while self.run {
+            if let Some(handle) = &mut self.handle {
+                let mut buffer: Vec<u8> = vec![0; 1024];
+                match handle.read(buffer.as_mut_slice()) {
+                    Ok(bytes_read) => {
+                        if bytes_read > 0 {
+                            let data = String::from_utf8_lossy(&buffer[..bytes_read]);
+                            Self::process_serial_buffer(data.to_string());
                         }
                     }
-                });
+                    Err(e) => {
+                        println!("串口读取出错: {}", e);
+                        self.status = Esp32Status::Disconnected;
+                        self.handle = None;
+                    }
+                }
+            } else {
+                println!("串口未连接或连接失败");
+                std::thread::sleep(std::time::Duration::from_secs(1));
             }
         }
+    }
+        
 
-    pub fn close(&self) -> Result<(), String> {
-
+    pub fn close(&mut self) -> Result<(), String> {
+        self.run = false;
         Ok(())
     }
 
@@ -236,7 +241,7 @@ impl Esp32Serial {
             }
         }
     }
-    
+
 }
 
 #[cfg(target_os = "macos")]
@@ -274,9 +279,7 @@ pub fn start_serial_mod() {
         if let Some(port) = port {
             println!("Found ESP32 port: {}", port);
             let mut esp32_serial = Esp32Serial::new(port, 115200, DataBits::Eight, StopBits::One, Parity::None, FlowControl::None);
-            esp32_serial.add_callback(|data| {
-                println!("Received data: {}", data);
-            });
+            // esp32_serial.add_callback();
             esp32_serial.open().unwrap();
         } else {
             println!("ESP32 port not found");

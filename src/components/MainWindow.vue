@@ -45,12 +45,12 @@
   
   <script setup>
   import { ref } from 'vue';
-  
+  import { invoke } from '@tauri-apps/api/core';
   const serverStatus = ref('无法连接到服务器，请检查网络');
   
   function checkForUpdates() {
     // Implement update checking logic
-    alert('正在检查更新...');
+    const result = invoke('check_for_updates');
   }
   
   function openFaceTrackerInstructions() {

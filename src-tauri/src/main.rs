@@ -3,6 +3,7 @@
 mod serial;
 
 fn main() {
+    papertracker_lib::run();
 
-    papertracker_lib::run()
+    
 }

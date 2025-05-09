@@ -26,6 +26,9 @@
     "targets": "all",
     "icon": [
       "icons/window_icon.png"
+    ],
+    "resources": [
+      "assets/*"
     ]
   }
 }
