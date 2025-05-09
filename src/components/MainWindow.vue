@@ -46,27 +46,29 @@
   <script setup>
   import { ref } from 'vue';
   import { invoke } from '@tauri-apps/api/core';
-import messageService from '../functional/pop_window/messageService';
+  import { openUrl } from '@tauri-apps/plugin-opener';
+  import messageService from '../functional/pop_window/messageService';
   const serverStatus = ref('无法连接到服务器，请检查网络');
   
   function checkForUpdates() {
     // Implement update checking logic
     invoke('check_for_updates').then((result) => {
       messageService.info("检查到可用更新如下：\n" + result);
+      serverStatus.value = '检查到可用更新';
     }).catch((error) => {
       messageService.error("检查更新失败，请稍后再试。");
-      console.error('Error checking for updates:', error);
+      serverStatus.value = '无法连接到服务器，请检查网络';
     });
   }
   
   function openFaceTrackerInstructions() {
     // Open face tracker instructions
-    window.open('#', '_blank');
+    openUrl('https://fcnk6r4c64fa.feishu.cn/wiki/LZdrwWWozi7zffkLt5pc81WanAd');
   }
   
   function openEyeTrackerInstructions() {
     // Open eye tracker instructions
-    window.open('#', '_blank');
+    openUrl('https://fcnk6r4c64fa.feishu.cn/wiki/Dg4qwI3mDiJ3fHk5iZtc2z6Rn47');
   }
   
   function restartVRCFT() {
