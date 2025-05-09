@@ -1,5 +1,3 @@
-use std::io::Read;
-
 use tauri::{AppHandle, Manager, Runtime};
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -10,8 +8,8 @@ pub struct UpdateInfo {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct VersionInfo {
-    #[serde(rename = "version")]
+pub struct VersionStruct {
+    #[serde(rename = "tag")]
     pub version: String,
     #[serde(rename = "firmware")]
     pub firmware: String,
@@ -19,8 +17,14 @@ pub struct VersionInfo {
     pub description: String
 }
 
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct VersionInfo {
+    #[serde(rename = "version")]
+    pub value: VersionStruct
+}
+
 #[tauri::command]
-pub fn check_for_updates<R: Runtime>(app: AppHandle<R>) -> Result<UpdateInfo, String>{
+pub fn check_for_updates<R: Runtime>(app: AppHandle<R>) -> Result<String, String>{
     let local_version = match get_local_version("assets/version.json", app) {
         Some(content) => content,
         None => {
@@ -28,7 +32,7 @@ pub fn check_for_updates<R: Runtime>(app: AppHandle<R>) -> Result<UpdateInfo, St
             return Err("读取本地配置文件失败".to_string());
         }
     };
-    println!("本地版本: {}", local_version.version);
+    println!("本地版本: {}", local_version.value.version);
     let remote_version = match get_remote_version("http://47.116.163.1/version.json") {
         Some(content) => content,
         None => {
@@ -36,18 +40,14 @@ pub fn check_for_updates<R: Runtime>(app: AppHandle<R>) -> Result<UpdateInfo, St
             return Err("读取远程配置文件失败".to_string());
         }
     };    
-    println!("远程版本: {}", remote_version.version);
-    Ok(UpdateInfo { 
-        remote_version: remote_version.version, 
-        local_version: local_version.version, 
-        release_notes: remote_version.description 
-    })
+    println!("远程版本: {}", remote_version.value.version);
+    Ok(format!("本地版本: {}\n远程版本: {}\n更新日志: {}", 
+        local_version.value.version, remote_version.value.version, remote_version.value.description))
 }
 
 pub fn get_local_version<R: Runtime>(version_path: &str, app: AppHandle<R>) -> Option<VersionInfo> {
     let resource_path = match app.path().resolve(version_path, tauri::path::BaseDirectory::Resource) {
         Ok(path) => {
-            println!("资源路径: {:?}", path);
             path
         },
         Err(_) => {
@@ -58,7 +58,6 @@ pub fn get_local_version<R: Runtime>(version_path: &str, app: AppHandle<R>) -> O
     if let Ok(version_file) = std::fs::File::open(resource_path) {
         match serde_json::from_reader::<std::fs::File, VersionInfo>(version_file) {
             Ok(version_info) => {
-                println!("配置文件解析成功: {:?}", version_info);
                 Some(version_info)
             }
             Err(e) => {
@@ -73,9 +72,17 @@ pub fn get_local_version<R: Runtime>(version_path: &str, app: AppHandle<R>) -> O
 }
 
 pub fn get_remote_version(url: &str) -> Option<VersionInfo> {
-    if let Ok(response) = reqwest::blocking::get(url) {
-        response.json::<VersionInfo>().ok()
-    } else {
-        None
+    match reqwest::blocking::get(url) {
+        Ok(res) => match res.json::<VersionInfo>() {
+            Ok(version_info) => Some(version_info),
+            Err(e) => {
+                println!("解析远程版本文件失败: {}", e);
+                None
+            }
+        },
+        Err(e) => {
+            println!("请求远程版本文件失败: {}", e);
+            None
+        }
     }
 }

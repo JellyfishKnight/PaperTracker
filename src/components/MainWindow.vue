@@ -46,11 +46,17 @@
   <script setup>
   import { ref } from 'vue';
   import { invoke } from '@tauri-apps/api/core';
+import messageService from '../functional/pop_window/messageService';
   const serverStatus = ref('无法连接到服务器，请检查网络');
   
   function checkForUpdates() {
     // Implement update checking logic
-    const result = invoke('check_for_updates');
+    invoke('check_for_updates').then((result) => {
+      messageService.info("检查到可用更新如下：\n" + result);
+    }).catch((error) => {
+      messageService.error("检查更新失败，请稍后再试。");
+      console.error('Error checking for updates:', error);
+    });
   }
   
   function openFaceTrackerInstructions() {
