@@ -45,7 +45,7 @@
   </template>
   
   <script setup>
-  import { ref } from 'vue';
+  import { ref, onMounted } from 'vue';
   import { invoke } from '@tauri-apps/api/core';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import messageService from '../functional/pop_window/messageService';
@@ -71,6 +71,10 @@
       updateLog.value = '无法连接到服务器，请检查网络';
     });
   }
+
+  onMounted(() => {
+    checkForUpdates();
+  })
   
   function openFaceTrackerInstructions() {
     // Open face tracker instructions
