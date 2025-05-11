@@ -3,6 +3,7 @@
 mod serial;
 mod config;
 mod utils;
+mod websocket;
 
 use serial::esp32::start_serial_mod;
 
