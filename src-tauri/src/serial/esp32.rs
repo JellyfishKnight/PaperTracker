@@ -269,7 +269,11 @@ impl Esp32Serial {
 
     fn handle_packet(&self, packet_type: PacketType, data: String) {
         // Handle the packet type
-        if let Some(callback) = self.callbacks.get(&packet_type) { callback(packet_type) }
+        if let Some(callback) = self.callbacks.get(&packet_type) {
+             callback(packet_type) 
+        } else {
+            println!("没有找到处理函数: {:?}, callback: {:?}", packet_type, self.callbacks);
+        }
     }
 
     fn register_callback(&mut self, packet_type: PacketType, callback: fn(PacketType)) {
@@ -342,6 +346,14 @@ pub fn start_serial_mod() {
         println!("找到ESP32端口: {}", port);
         esp32_serial = Esp32Serial::new(port, 115200, DataBits::Eight, StopBits::One, Parity::None, FlowControl::None);
         esp32_serial.register_callback(PacketType::WifiSsidPwd("".to_string(), "".to_string()), wifi_ssid_pwd_callback);
+        esp32_serial.register_callback(PacketType::WifiConfirm, wifi_confirm_callback);
+        esp32_serial.register_callback(PacketType::WifiSetup, wifi_setup_callback);
+        esp32_serial.register_callback(PacketType::WifiError("".to_string(), "".to_string()), wifi_error_callback);
+        esp32_serial.register_callback(PacketType::DeviceStatus { ip: "".to_string(), brightness: 0, power: 0, version: 0 }, device_status_callback);
+        esp32_serial.register_callback(PacketType::LightControl(0), light_control_callback);
+        esp32_serial.register_callback(PacketType::Unknown, |packet| {
+            println!("Handling Unknown Packet: {:?}", packet);
+        });
         esp32_serial.open().unwrap();
     } else {
         println!("没有找到ESP32设备");
