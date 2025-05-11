@@ -2,8 +2,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod serial;
 
-fn main() {
-    papertracker_lib::run();
+use serial::esp32::start_serial_mod;
 
-    
+fn main() {
+    start_serial_mod();
+    papertracker_lib::run();
 }
