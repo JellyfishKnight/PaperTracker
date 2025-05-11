@@ -1,6 +1,6 @@
 use serialport::{self, DataBits, FlowControl, Parity, SerialPort, StopBits};
 use tauri::window;
-use std::{collections::HashMap, mem::discriminant, ops::BitOrAssign};
+use std::{collections::HashMap, mem::discriminant, ops::BitOrAssign, sync::{Arc, Mutex}, time::Duration};
 
 #[derive(Debug, PartialEq)]
 pub enum Esp32Status {
@@ -8,7 +8,7 @@ pub enum Esp32Status {
     Disconnected,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PacketType {
     WifiSetup,
     WifiSsidPwd(String, String),
@@ -103,13 +103,16 @@ impl Esp32Serial {
                     }
                     Err(e) => {
                         println!("串口读取出错: {}", e);
-                        // self.status = Esp32Status::Disconnected;
-                        // self.handle = None;
+                        self.status = Esp32Status::Disconnected;
+                        self.handle = None;
                     }
                 }
             } else {
                 println!("串口未连接或连接失败");
-                std::thread::sleep(std::time::Duration::from_secs(1));
+                self.status = Esp32Status::Disconnected;
+                self.handle = None;
+                self.run = false;
+                break;
             }
         }
     }
@@ -309,58 +312,167 @@ pub fn find_esp32_port() -> Option<String> {
     unimplemented!()
 }
 
-pub fn start_serial_mod() {
-    let wifi_ssid_pwd_callback = |packet: PacketType| {
+pub fn serial_watchdog(esp32_serial: Arc<Mutex<Option<Esp32Serial>>>) {
+    let retry_interval = Duration::from_secs(5);  // 每5秒检查一次
+    
+    loop {
+        // 检查串口状态
+        let need_reconnect = {
+            let serial_guard = esp32_serial.lock().unwrap();
+            match &*serial_guard {
+                Some(serial) => serial.status == Esp32Status::Disconnected,
+                None => true  // 如果没有实例，也需要重新连接
+            }
+        };
+        
+        if need_reconnect {
+            println!("守护线程: 检测到串口断开，尝试重新连接...");
+            
+            // 尝试找到端口
+            if let Some(port) = find_esp32_port() {
+                println!("守护线程: 找到ESP32端口: {}", port);
+                
+                // 创建新的串口实例
+                let mut new_serial = Esp32Serial::new(
+                    port.clone(), 
+                    115200, 
+                    DataBits::Eight, 
+                    StopBits::One, 
+                    Parity::None, 
+                    FlowControl::None
+                );
+                
+                // 复制回调函数
+                {
+                    let serial_guard = esp32_serial.lock().unwrap();
+                    if let Some(serial) = &*serial_guard {
+                        for (packet_type, callback) in &serial.callbacks {
+                            new_serial.register_callback((*packet_type).clone(), *callback);
+                        }
+                    } else {
+                        // 如果没有之前的实例，添加默认回调
+                        register_default_callbacks(&mut new_serial);
+                    }
+                }
+                
+                // 尝试打开端口
+                if new_serial.open().is_ok() {
+                    println!("守护线程: 成功连接到串口 {}", port);
+                    
+                    // 替换旧的实例
+                    {
+                        let mut serial_guard = esp32_serial.lock().unwrap();
+                        *serial_guard = Some(new_serial);
+                    }
+                    
+                    // 启动串口线程
+                    let esp32_serial_clone = esp32_serial.clone();
+                    std::thread::spawn(move || {
+                        let mut serial_guard = esp32_serial_clone.lock().unwrap();
+                        if let Some(serial) = &mut *serial_guard {
+                            serial.start();
+                        }
+                    });
+                } else {
+                    println!("守护线程: 连接到串口 {} 失败", port);
+                }
+            } else {
+                println!("守护线程: 未找到ESP32设备，将在{}秒后重试", retry_interval.as_secs());
+            }
+        }
+        
+        // 等待一段时间再检查
+        std::thread::sleep(retry_interval);
+    }
+}   
+
+// 添加一个注册默认回调的辅助函数
+fn register_default_callbacks(serial: &mut Esp32Serial) {
+    serial.register_callback(PacketType::WifiSsidPwd("".to_string(), "".to_string()), |packet| {
         if let PacketType::WifiSsidPwd(ssid, pwd) = packet {
             println!("Handling SSID: {}, PWD: {}", ssid, pwd);
         }
-    };
-    let wifi_confirm_callback = |packet: PacketType| {
-        if let PacketType::WifiConfirm = packet {
-            println!("Handling WiFi Confirm");
-        }
-    };
-    let wifi_setup_callback = |packet: PacketType| {
-        if let PacketType::WifiSetup = packet {
-            println!("Handling WiFi Setup");
-        }
-    };
-    let wifi_error_callback = |packet: PacketType| {
+    });
+    
+    serial.register_callback(PacketType::WifiConfirm, |_| {
+        println!("Handling WiFi Confirm");
+    });
+    
+    serial.register_callback(PacketType::WifiSetup, |_| {
+        println!("Handling WiFi Setup");
+    });
+    
+    serial.register_callback(PacketType::WifiError("".to_string(), "".to_string()), |packet| {
         if let PacketType::WifiError(ssid, pwd) = packet {
             println!("Handling WiFi Error: SSID: {}, PWD: {}", ssid, pwd);
         }
-    };
-    let device_status_callback = |packet: PacketType| {
+    });
+    
+    serial.register_callback(PacketType::DeviceStatus { ip: "".to_string(), brightness: 0, power: 0, version: 0 }, |packet| {
         if let PacketType::DeviceStatus { ip, brightness, power, version } = packet {
             println!("Handling Device Status: IP: {}, Brightness: {}, Power: {}, Version: {}", ip, brightness, power, version);
         }
-    };
-    let light_control_callback = |packet: PacketType| {
+    });
+    
+    serial.register_callback(PacketType::LightControl(0), |packet| {
         if let PacketType::LightControl(brightness) = packet {
             println!("Handling Light Control: Brightness: {}", brightness);
         }
-    };
-    let port = find_esp32_port();
-    let mut esp32_serial : Esp32Serial;
-    if let Some(port) = port {
+    });
+    
+    serial.register_callback(PacketType::Unknown, |packet| {
+        println!("Handling Unknown Packet: {:?}", packet);
+    });
+}
+
+pub fn start_serial_mod() {
+    // 创建可共享的ESP32串口实例
+    let esp32_serial = Arc::new(Mutex::new(None::<Esp32Serial>));
+        
+    // 尝试初始化串口
+    if let Some(port) = find_esp32_port() {
         println!("找到ESP32端口: {}", port);
-        esp32_serial = Esp32Serial::new(port, 115200, DataBits::Eight, StopBits::One, Parity::None, FlowControl::None);
-        esp32_serial.register_callback(PacketType::WifiSsidPwd("".to_string(), "".to_string()), wifi_ssid_pwd_callback);
-        esp32_serial.register_callback(PacketType::WifiConfirm, wifi_confirm_callback);
-        esp32_serial.register_callback(PacketType::WifiSetup, wifi_setup_callback);
-        esp32_serial.register_callback(PacketType::WifiError("".to_string(), "".to_string()), wifi_error_callback);
-        esp32_serial.register_callback(PacketType::DeviceStatus { ip: "".to_string(), brightness: 0, power: 0, version: 0 }, device_status_callback);
-        esp32_serial.register_callback(PacketType::LightControl(0), light_control_callback);
-        esp32_serial.register_callback(PacketType::Unknown, |packet| {
-            println!("Handling Unknown Packet: {:?}", packet);
-        });
-        esp32_serial.open().unwrap();
+        
+        let mut serial = Esp32Serial::new(
+            port.clone(), 
+            115200, 
+            DataBits::Eight, 
+            StopBits::One, 
+            Parity::None, 
+            FlowControl::None
+        );
+        
+        // 注册回调
+        register_default_callbacks(&mut serial);
+        
+        // 尝试打开串口
+        if let Ok(_) = serial.open() {
+            println!("成功连接到串口 {}", port);
+            
+            // 保存实例
+            {
+                let mut serial_guard = esp32_serial.lock().unwrap();
+                *serial_guard = Some(serial);
+            }
+            
+            // 启动串口线程
+            let esp32_serial_clone = esp32_serial.clone();
+            std::thread::spawn(move || {
+                let mut serial_guard = esp32_serial_clone.lock().unwrap();
+                if let Some(serial) = &mut *serial_guard {
+                    serial.start();
+                }
+            });
+        } else {
+            println!("连接到串口 {} 失败，守护线程将自动重试", port);
+        }
     } else {
-        println!("没有找到ESP32设备");
-        return;
+        println!("没有找到ESP32设备，守护线程将自动寻找");
     }
 
-    let _ = std::thread::spawn(move || {
-        esp32_serial.start();
+    // 启动守护线程
+    let esp32_serial_clone = esp32_serial.clone();
+    std::thread::spawn(move || {
+        serial_watchdog(esp32_serial_clone);
     });
 }
