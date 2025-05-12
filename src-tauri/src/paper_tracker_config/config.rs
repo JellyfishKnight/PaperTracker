@@ -1,3 +1,5 @@
+use std::sync::Once;
+
 use serde::{Deserialize, Serialize};
 use crate::utils::roi::Roi;
 use config;
@@ -64,6 +66,11 @@ impl EyeConfig {
         settigns.merge(config::File::with_name(config_path))?;
         let conf: EyeConfig = settigns.try_into()?;
         Ok(conf)
+    }
+
+    pub fn new_args() -> Result<Self> {
+        let config = EyeConfig::new(EYE_CONFIG_PATH.get().unwrap().as_str())?;
+        Ok(config)
     }
 
     pub fn write(config_path: &str) -> Result<()> {
@@ -136,9 +143,25 @@ impl FaceConfig {
         Ok(conf)
     }
 
+    pub fn new_args() -> Result<Self> {
+        let config = FaceConfig::new(FACE_CONFIG_PATH.get().unwrap().as_str())?;
+        Ok(config)
+    }
+
     pub fn write(config_path: &str) -> Result<()> {
 
 
         Ok(())
     }
 }
+
+
+pub static EYE_CONFIG_PATH: OnceCell<String> = OnceCell::new();
+
+pub static FACE_CONFIG_PATH: OnceCell<String> = OnceCell::new();
+
+// 配置文件加载失败可直接panic
+
+pub static EYE_CONFIG: Lazy<EyeConfig> = Lazy::new(|| EyeConfig::new_args().unwrap());
+
+pub static FACE_CONIG: Lazy<FaceConfig> = Lazy::new(|| FaceConfig::new_args().unwrap());
