@@ -1,6 +1,6 @@
 use std::io::Write;
-
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Manager, Runtime};
 use crate::utils::roi::Roi;
 use config;
 use toml;
@@ -206,4 +206,18 @@ pub fn write_all_config() -> Result<()> {
 pub fn init_config_path(eye_path: String, face_path: String) {
     EYE_CONFIG_PATH.set(eye_path).unwrap();
     FACE_CONFIG_PATH.set(face_path).unwrap();
+}
+
+#[tauri::command]
+pub fn init_config<R: Runtime>(app: AppHandle<R>) -> std::result::Result<(), String> {
+    let eye_path = app.path().resolve("assets/eye_config.toml", tauri::path::BaseDirectory::Resource);
+    let face_path = app.path().resolve("assets/face_config.toml ", tauri::path::BaseDirectory::Resource);
+    if eye_path.is_err() || face_path.is_err() {
+        return Err("无法解析配置文件路径，请联系客服或者重新安装".to_string());
+    }
+    init_config_path(
+        eye_path.unwrap().to_str().unwrap().to_string(),
+        face_path.unwrap().to_str().unwrap().to_string(),
+    );
+    std::result::Result::Ok(())
 }
