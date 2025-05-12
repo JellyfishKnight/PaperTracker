@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 use crate::utils::roi::Roi;
+use config;
+use once_cell::sync::{Lazy, OnceCell};
+use anyhow::{Ok, Result};
 
 /*************************************************************/
 /***************************眼追参数****************************/
@@ -21,7 +24,6 @@ pub struct EyeFunctionalConfig {
     pub flip_y: bool,
     pub left_rotate_angle: i32,
     pub right_rotate_angle: i32,    
-
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,6 +55,22 @@ pub struct EyeParamsConfig {
 pub struct EyeConfig {
     pub functional: EyeFunctionalConfig,
     pub params: EyeParamsConfig,
+    pub modified: bool,
+}
+
+impl EyeConfig {
+    pub fn new(config_path: &str) -> Result<Self> {
+        let mut settigns = config::Config::default();
+        settigns.merge(config::File::with_name(config_path))?;
+        let conf: EyeConfig = settigns.try_into()?;
+        Ok(conf)
+    }
+
+    pub fn write(config_path: &str) -> Result<()> {
+
+
+        Ok(())
+    }
 }
 
 /*************************************************************/
@@ -71,35 +89,35 @@ pub struct FaceFunctionalConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FaceParamsConfig {
-    pub cheek_puff_left_offset: f32,
-    pub cheek_puff_right_offset: f32,
-    pub jaw_open_offset: f32,
-    pub tongue_out_offset: f32,
-    pub mouth_close_offset: f32,
-    pub mouth_funnel_offset: f32,
-    pub mouth_pucker_offset: f32,
-    pub mouth_roll_upper_offset: f32,
-    pub mouth_roll_lower_offset: f32,
-    pub mouth_shrug_upper_offset: f32,
-    pub mouth_shrug_lower_offset: f32,
-    pub cheek_puff_left_gain: f32,
-    pub cheek_puff_right_gain: f32,
-    pub jaw_open_gain: f32,
-    pub tongue_out_gain: f32,
-    pub mouth_close_gain: f32,
-    pub mouth_funnel_gain: f32,
-    pub mouth_pucker_gain: f32,
-    pub mouth_roll_upper_gain: f32,
-    pub mouth_roll_lower_gain: f32,
-    pub mouth_shrug_upper_gain: f32,
-    pub mouth_shrug_lower_gain: f32,
+    pub cheek_puff_left_offset: f64,
+    pub cheek_puff_right_offset: f64,
+    pub jaw_open_offset: f64,
+    pub tongue_out_offset: f64,
+    pub mouth_close_offset: f64,
+    pub mouth_funnel_offset: f64,
+    pub mouth_pucker_offset: f64,
+    pub mouth_roll_upper_offset: f64,
+    pub mouth_roll_lower_offset: f64,
+    pub mouth_shrug_upper_offset: f64,
+    pub mouth_shrug_lower_offset: f64,
+    pub cheek_puff_left_gain: f64,
+    pub cheek_puff_right_gain: f64,
+    pub jaw_open_gain: f64,
+    pub tongue_out_gain: f64,
+    pub mouth_close_gain: f64,
+    pub mouth_funnel_gain: f64,
+    pub mouth_pucker_gain: f64,
+    pub mouth_roll_upper_gain: f64,
+    pub mouth_roll_lower_gain: f64,
+    pub mouth_shrug_upper_gain: f64,
+    pub mouth_shrug_lower_gain: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FaceFilterConfig {
-    kalman_dt: f32,
-    kalman_q_factor: f32,
-    r_factor: f32,
+    pub kalman_dt: f64,
+    pub kalman_q_factor: f64,
+    pub r_factor: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -107,4 +125,20 @@ pub struct FaceConfig {
     pub functional: FaceFunctionalConfig,
     pub params: FaceParamsConfig,
     pub filter: FaceFilterConfig,
+    pub modified: bool,
+}
+
+impl FaceConfig {
+    pub fn new(config_path: &str) -> Result<Self> {
+        let mut settigns = config::Config::default();
+        settigns.merge(config::File::with_name(config_path))?;
+        let conf: FaceConfig = settigns.try_into()?;
+        Ok(conf)
+    }
+
+    pub fn write(config_path: &str) -> Result<()> {
+
+
+        Ok(())
+    }
 }
