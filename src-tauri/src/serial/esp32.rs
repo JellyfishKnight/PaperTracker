@@ -279,9 +279,18 @@ impl Esp32Serial {
         }
     }
 
-    fn register_callback(&mut self, packet_type: PacketType, callback: fn(PacketType)) {
+    pub fn register_callback(&mut self, packet_type: PacketType, callback: fn(PacketType)) {
         // Register a callback for the given packet type
         self.callbacks.insert(packet_type, callback);
+    }
+
+    pub fn write(&mut self, data: &String) -> Result<(), String> {
+        if let Some(handle) = &mut self.handle {
+            handle.write(data.as_bytes()).map_err(|e| format!("Failed to write to port: {}", e))?;
+        } else {
+            return Err("串口未连接".to_string());
+        }
+        Ok(())
     }
 }
 

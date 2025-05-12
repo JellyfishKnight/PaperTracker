@@ -1,8 +1,11 @@
-use paper_tracker_config::config::init_config;
-
 mod updater;
 mod paper_tracker_config;
 mod utils;
+mod serial;
+
+use paper_tracker_config::config::init_config;
+use updater::version_check::check_for_updates;
+use serial::esptools::{flash_esp32, restart_esp32};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -20,8 +23,10 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             greet, 
-            updater::version_check::check_for_updates,
-            ])
+            check_for_updates,
+            flash_esp32,
+            restart_esp32,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

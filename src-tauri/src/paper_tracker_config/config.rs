@@ -212,8 +212,8 @@ pub fn init_config<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
     let eye_path = app.path().resolve("assets/eye_config.toml", tauri::path::BaseDirectory::Resource);
     let face_path = app.path().resolve("assets/face_config.toml ", tauri::path::BaseDirectory::Resource);
     if eye_path.is_err() || face_path.is_err() {
-        println!("无法解析资源路径");
-        return Err(anyhow::anyhow!("无法解析资源路径"));
+        println!("无法解析配置文件资源路径");
+        return Err(anyhow::anyhow!("无法解析配置文件资源路径"));
     }
     println!("眼追配置文件路径: {:?}", eye_path);
     println!("面捕配置文件路径: {:?}", face_path);
