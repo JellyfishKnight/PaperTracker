@@ -12,8 +12,9 @@ use websocket::esp32_video_stream::*;
 use opencv::{imgproc, highgui, core};
 
 fn main() {
-    // start_serial_mod();
+    start_serial_mod();
 
+    
     // let config = ESP32Config {
     //     connection_timeout_ms: 5000,  // 给予更长的连接时间
     //     heartbeat_timeout_ms: 2000,   // 每2秒检查心跳

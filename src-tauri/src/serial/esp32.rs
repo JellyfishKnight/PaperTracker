@@ -1,6 +1,7 @@
 use serialport::{self, DataBits, FlowControl, Parity, SerialPort, StopBits};
 use tauri::window;
 use std::{collections::HashMap, mem::discriminant, ops::BitOrAssign, sync::{Arc, Mutex}, time::Duration};
+use crate::serial::global::ESP32_SERIAL;
 
 #[derive(Debug, PartialEq)]
 pub enum Esp32Status {
@@ -435,10 +436,7 @@ fn register_default_callbacks(serial: &mut Esp32Serial) {
 }
 
 pub fn start_serial_mod() {
-    // 创建可共享的ESP32串口实例
-    let esp32_serial = Arc::new(Mutex::new(None::<Esp32Serial>));
-        
-    // 尝试初始化串口
+    // Try to initialize the serial port
     if let Some(port) = find_esp32_port() {
         println!("找到ESP32端口: {}", port);
         
@@ -451,21 +449,21 @@ pub fn start_serial_mod() {
             FlowControl::None
         );
         
-        // 注册回调
+        // Register callbacks
         register_default_callbacks(&mut serial);
         
-        // 尝试打开串口
+        // Try to open the serial port
         if serial.open().is_ok() {
-            println!("成功连接到串口 {}", port);
+            println!("成功打开串口 {}", port);
             
-            // 保存实例
+            // Save the instance to the global variable
             {
-                let mut serial_guard = esp32_serial.lock().unwrap();
+                let mut serial_guard = ESP32_SERIAL.lock().unwrap();
                 *serial_guard = Some(serial);
             }
             
-            // 启动串口线程
-            let esp32_serial_clone = esp32_serial.clone();
+            // Start the serial thread
+            let esp32_serial_clone = ESP32_SERIAL.clone();
             std::thread::spawn(move || {
                 let mut serial_guard = esp32_serial_clone.lock().unwrap();
                 if let Some(serial) = &mut *serial_guard {
@@ -473,15 +471,12 @@ pub fn start_serial_mod() {
                 }
             });
         } else {
-            println!("连接到串口 {} 失败，守护线程将自动重试", port);
+            println!("连接到串口{}失败, 守护进程将自动搜索重启", port);
         }
     } else {
-        println!("没有找到ESP32设备，守护线程将自动寻找");
+        println!("没有ESP32设备插入, 守护进程将自动搜索重启");
     }
 
-    // 启动守护线程
-    let esp32_serial_clone = esp32_serial.clone();
-    std::thread::spawn(move || {
-        serial_watchdog(esp32_serial_clone);
-    });
+    // Initialize the global serial connection
+    crate::serial::global::init_global_serial();
 }

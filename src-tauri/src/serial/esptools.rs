@@ -1,4 +1,4 @@
-use tauri::{Manager, AppHandle, Runtime}
+use tauri::{Manager, AppHandle, Runtime};
 
 
 #[tauri::command]
