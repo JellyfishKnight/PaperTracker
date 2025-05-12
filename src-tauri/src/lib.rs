@@ -1,5 +1,8 @@
+use paper_tracker_config::config::init_config;
+
 mod updater;
 mod paper_tracker_config;
+mod utils;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -11,10 +14,13 @@ fn greet(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            init_config(app.handle())?;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             greet, 
             updater::version_check::check_for_updates,
-            paper_tracker_config::config::init_config,
             ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
