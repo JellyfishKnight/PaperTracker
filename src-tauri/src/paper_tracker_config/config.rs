@@ -1,8 +1,9 @@
-use std::sync::Once;
+use std::io::Write;
 
 use serde::{Deserialize, Serialize};
 use crate::utils::roi::Roi;
 use config;
+use toml;
 use once_cell::sync::{Lazy, OnceCell};
 use anyhow::{Ok, Result};
 
@@ -73,9 +74,20 @@ impl EyeConfig {
         Ok(config)
     }
 
-    pub fn write(config_path: &str) -> Result<()> {
-
-
+    pub fn write() -> Result<()> {
+        let toml_string = toml::to_string(&*EYE_CONFIG).unwrap();
+        // 检查文件是否已经存在
+        if std::path::Path::new(EYE_CONFIG_PATH.get().unwrap()).exists() {
+            // 如果存在，先删除
+            std::fs::remove_file(EYE_CONFIG_PATH.get().unwrap())?;
+        }
+        // 创建文件并写入内容
+        let mut file = std::fs::File::create(EYE_CONFIG_PATH.get().unwrap())?;
+        file.write_all(toml_string.as_bytes())?;
+        // 刷新文件缓冲区
+        file.flush()?;
+        // 关闭文件
+        drop(file);
         Ok(())
     }
 }
@@ -148,9 +160,20 @@ impl FaceConfig {
         Ok(config)
     }
 
-    pub fn write(config_path: &str) -> Result<()> {
-
-
+    pub fn write() -> Result<()> {
+        let toml_string = toml::to_string(&*FACE_CONIG).unwrap();
+        // 检查文件是否已经存在
+        if std::path::Path::new(FACE_CONFIG_PATH.get().unwrap()).exists() {
+            // 如果存在，先删除
+            std::fs::remove_file(FACE_CONFIG_PATH.get().unwrap())?;
+        }
+        // 创建文件并写入内容
+        let mut file = std::fs::File::create(EYE_CONFIG_PATH.get().unwrap())?;
+        file.write_all(toml_string.as_bytes())?;
+        // 刷新文件缓冲区
+        file.flush()?;
+        // 关闭文件
+        drop(file);
         Ok(())
     }
 }
