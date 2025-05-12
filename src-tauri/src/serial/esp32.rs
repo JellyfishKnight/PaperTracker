@@ -446,7 +446,7 @@ pub fn start_serial_mod() {
         register_default_callbacks(&mut serial);
         
         // 尝试打开串口
-        if let Ok(_) = serial.open() {
+        if serial.open().is_ok() {
             println!("成功连接到串口 {}", port);
             
             // 保存实例

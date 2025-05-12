@@ -188,3 +188,22 @@ pub static FACE_CONFIG_PATH: OnceCell<String> = OnceCell::new();
 pub static EYE_CONFIG: Lazy<EyeConfig> = Lazy::new(|| EyeConfig::new_args().unwrap());
 
 pub static FACE_CONIG: Lazy<FaceConfig> = Lazy::new(|| FaceConfig::new_args().unwrap());
+
+pub fn write_eye_config() -> Result<()> {
+    EyeConfig::write()
+}
+
+pub fn write_face_config() -> Result<()> {
+    FaceConfig::write()
+}
+
+pub fn write_all_config() -> Result<()> {
+    write_eye_config()?;
+    write_face_config()?;
+    Ok(())
+}
+
+pub fn init_config_path(eye_path: String, face_path: String) {
+    EYE_CONFIG_PATH.set(eye_path).unwrap();
+    FACE_CONFIG_PATH.set(face_path).unwrap();
+}
