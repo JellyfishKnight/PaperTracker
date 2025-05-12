@@ -255,7 +255,7 @@ impl Esp32Serial {
                         self.handle_packet(PacketType::WifiError(ssid, passwd), packet);
                     }
                     PacketType::DeviceStatus {ip, brightness, power, version } => {
-                        println!("匹配到包类型5 (设备状态): 亮度 = {}, IP = {}, 电量 = {}, 固件版本 = {}", brightness, ip, power, version);
+                        // println!("匹配到包类型5 (设备状态): 亮度 = {}, IP = {}, 电量 = {}, 固件版本 = {}", brightness, ip, power, version);
                         self.handle_packet(PacketType::DeviceStatus{ip, brightness, power, version}, packet);
                     }
                     PacketType::LightControl(brightness) => {
