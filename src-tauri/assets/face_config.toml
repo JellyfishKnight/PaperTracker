@@ -7,6 +7,13 @@ energy_mode=0
 use_filter=false
 wifi_ip="0.0.0.0"
 
+[functional.rect]
+x=0
+y=0
+width=1
+height=1
+
+
 [params]
 cheek_puff_left_offset=0
 cheek_puff_right_offset=0
@@ -35,9 +42,3 @@ mouth_shrug_lower_gain=0
 kalman_dt=0
 kalman_q_factor=0
 r_factor=0
-
-[[rect]]
-x=0
-y=0
-width=1
-height=1

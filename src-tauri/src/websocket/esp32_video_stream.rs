@@ -92,35 +92,35 @@ impl Default for ESP32Config {
 }
 
 /// ESP32 视频流处理器的内部状态
-struct ESP32State {
-    status: StreamStatus,
-    device_status: DeviceStatus,
-    current_url: String,
-    connection_urls: Vec<String>,
-    image_buffer: VecDeque<Frame>,
-    last_frame_time: Instant,
-    missed_heartbeats: usize,
+pub struct ESP32State {
+    pub status: StreamStatus,
+    pub device_status: DeviceStatus,
+    pub current_url: String,
+    pub connection_urls: Vec<String>,
+    pub image_buffer: VecDeque<Frame>,
+    pub last_frame_time: Instant,
+    pub missed_heartbeats: usize,
 }
 
 /// ESP32 视频流控制器 - 公共接口
 pub struct ESP32StreamController {
-    state: Arc<Mutex<ESP32State>>,
-    config: ESP32Config,
+    pub state: Arc<Mutex<ESP32State>>,
+    pub config: ESP32Config,
     
     // 通信通道
-    shutdown_tx: Option<mpsc::Sender<()>>,
-    status_rx: Arc<Mutex<mpsc::Receiver<DeviceStatus>>>,
+    pub shutdown_tx: Option<mpsc::Sender<()>>,
+    pub status_rx: Arc<Mutex<mpsc::Receiver<DeviceStatus>>>,
     
     // 工作线程句柄
-    worker_thread: Option<thread::JoinHandle<()>>,
+    pub worker_thread: Option<thread::JoinHandle<()>>,
 }
 
 /// 表示一个 ESP32 视频流会话的句柄
 /// 这是一个轻量级的克隆类型，用于从主控制器访问流
 #[derive(Clone)]
 pub struct ESP32Stream {
-    state: Arc<Mutex<ESP32State>>,
-    status_rx: Arc<Mutex<mpsc::Receiver<DeviceStatus>>>,
+    pub state: Arc<Mutex<ESP32State>>,
+    pub status_rx: Arc<Mutex<mpsc::Receiver<DeviceStatus>>>,
 }
 
 impl ESP32StreamController {
@@ -416,7 +416,7 @@ impl ESP32Stream {
 }
 
 // 工作线程主函数
-fn run_esp32_stream(
+pub fn run_esp32_stream(
     state_arc: Arc<Mutex<ESP32State>>,
     config: ESP32Config,
     shutdown_rx: mpsc::Receiver<()>,
@@ -437,6 +437,7 @@ fn run_esp32_stream(
         // 检查是否还有可用的 URL
         if *attempt_index >= state.connection_urls.len() {
             println!("所有连接尝试都失败");
+            std::thread::sleep(Duration::from_secs(5));
             state.status = StreamStatus::Disconnected;
             return None;
         }
@@ -495,18 +496,10 @@ fn run_esp32_stream(
         }
         
         // 如果没有活动连接，尝试连接
-        if current_socket.is_none() {
-            if reconnect_attempt >= config.max_reconnect_attempts {
-                println!("达到最大重连尝试次数 ({}), 终止重连", config.max_reconnect_attempts);
-                let mut state = state_arc.lock().unwrap();
-                state.status = StreamStatus::Disconnected;
-                break;
-            }
-            
+        if current_socket.is_none() {            
             match try_connect(&state_arc, &mut attempt_index, &config) {
                 Some(socket) => {
                     current_socket = Some(socket);
-                    reconnect_attempt = 0; // 重置重连计数
                 },
                 None => {
                     // 没有成功连接，等待一段时间后重试

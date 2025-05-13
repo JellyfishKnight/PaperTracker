@@ -14,3 +14,7 @@ pub fn init_global_serial() {
         serial_watchdog(esp32_serial_clone);
     });
 }
+
+pub static LAST_FACE_IP: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new(String::new()));
+pub static LAST_LEFT_EYE_IP: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new(String::new()));
+pub static LAST_RIGHT_EYE_IP: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new(String::new()));

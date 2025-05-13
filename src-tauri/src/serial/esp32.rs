@@ -2,6 +2,11 @@ use serialport::{self, DataBits, FlowControl, Parity, SerialPort, StopBits};
 use tauri::window;
 use std::{collections::HashMap, mem::discriminant, ops::BitOrAssign, sync::{Arc, Mutex}, time::Duration};
 use crate::serial::global::ESP32_SERIAL;
+use crate::utils::consts::*;
+use crate::websocket::global::update_stream_ip;
+use crate::websocket::esp32_video_stream::DeviceType;
+
+use super::global::{LAST_FACE_IP, LAST_LEFT_EYE_IP, LAST_RIGHT_EYE_IP};
 
 #[derive(Debug, PartialEq)]
 pub enum Esp32Status {
@@ -191,10 +196,10 @@ impl Esp32Serial {
                         .collect::<Vec<_>>();
                     let formatted_ip = ip_parts.join(".");
     
-                    println!(
-                        "匹配到包类型5 (设备状态): 亮度 = {}, IP = {}, 电量 = {}, 固件版本 = {}",
-                        brightness, formatted_ip, power, version
-                    );
+                    // println!(
+                    //     "匹配到包类型5 (设备状态): 亮度 = {}, IP = {}, 电量 = {}, 固件版本 = {}",
+                    //     brightness, formatted_ip, power, version
+                    // );
     
                     PacketType::DeviceStatus {
                         ip: formatted_ip,
@@ -236,7 +241,7 @@ impl Esp32Serial {
                 let packet = buffer[..end + 2].to_string();
                 buffer = buffer[end + 2..].to_string();
     
-                println!("接收到数据包: {}", packet);
+                // println!("接收到数据包: {}", packet);
     
                 match Self::parse_packet(packet.as_str()) {
                     PacketType::WifiSetup => {
@@ -420,7 +425,85 @@ fn register_default_callbacks(serial: &mut Esp32Serial) {
     
     serial.register_callback(PacketType::DeviceStatus { ip: "".to_string(), brightness: 0, power: 0, version: 0 }, |packet| {
         if let PacketType::DeviceStatus { ip, brightness, power, version } = packet {
-            println!("Handling Device Status: IP: {}, Brightness: {}, Power: {}, Version: {}", ip, brightness, power, version);
+            // 首先检查IP是否有效
+            if ip.is_empty() || ip == "0.0.0.0" {
+                return;
+            }
+            
+            let should_update = match version {
+                DEVICE_TYPE_FACE => {
+                    let mut last_ip = LAST_FACE_IP.lock().unwrap();
+                    let ip_changed = *last_ip != ip;
+                    if ip_changed {
+                        println!("面部设备IP变更: {} -> {}", *last_ip, ip);
+                        *last_ip = ip.clone();
+                    }
+                    ip_changed
+                },
+                DEVICE_TYPE_LEFT_EYE => {
+                    let mut last_ip = LAST_LEFT_EYE_IP.lock().unwrap();
+                    let ip_changed = *last_ip != ip;
+                    if ip_changed {
+                        println!("左眼设备IP变更: {} -> {}", *last_ip, ip);
+                        *last_ip = ip.clone();
+                    }
+                    ip_changed
+                },
+                DEVICE_TYPE_RIGHT_EYE => {
+                    let mut last_ip = LAST_RIGHT_EYE_IP.lock().unwrap();
+                    let ip_changed = *last_ip != ip;
+                    if ip_changed {
+                        println!("右眼设备IP变更: {} -> {}", *last_ip, ip);
+                        *last_ip = ip.clone();
+                    }
+                    ip_changed
+                },
+                _ => false
+            };
+            
+            // 只有当IP变更时才更新流
+            if should_update {
+                let ip_clone = ip.clone();
+                match version {
+                    DEVICE_TYPE_FACE => {
+                        std::thread::spawn(move || {
+                            println!("正在更新面部设备IP为: {}", ip_clone);
+                            if let Err(e) = update_stream_ip(DeviceType::Face, ip_clone) {
+                                println!("更新面部设备IP失败: {}", e);
+                            }
+                        });
+                    },
+                    DEVICE_TYPE_LEFT_EYE => {
+                        std::thread::spawn(move || {
+                            println!("正在更新左眼设备IP为: {}", ip_clone);
+                            if let Err(e) = update_stream_ip(DeviceType::LeftEye, ip_clone) {
+                                println!("更新左眼设备IP失败: {}", e);
+                            }
+                        });
+                    },
+                    DEVICE_TYPE_RIGHT_EYE => {
+                        std::thread::spawn(move || {
+                            println!("正在更新右眼设备IP为: {}", ip_clone);
+                            if let Err(e) = update_stream_ip(DeviceType::RightEye, ip_clone) {
+                                println!("更新右眼设备IP失败: {}", e);
+                            }
+                        });
+                    },
+                    _ => {
+                        println!("未知设备类型: {}", version);
+                    }
+                }
+            } else {
+                // // 只输出状态信息
+                // println!("设备 {} 状态: 亮度={}, 电量={}", 
+                //          match version {
+                //              DEVICE_TYPE_FACE => "面部",
+                //              DEVICE_TYPE_LEFT_EYE => "左眼",
+                //              DEVICE_TYPE_RIGHT_EYE => "右眼",
+                //              _ => "未知"
+                //          }, 
+                //          brightness, power);
+            }
         }
     });
     
