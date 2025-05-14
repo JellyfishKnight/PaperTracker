@@ -219,6 +219,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue';
+import deviceService from '../functional/deviceService';
 
 // 页面状态
 const currentPage = ref('main');
@@ -265,18 +266,21 @@ const calibration = reactive({
 
 // 方法
 function sendWifiSettings() {
-  logContent.value += `\n正在发送WiFi设置：${ssid.value}...`;
-  // 实现实际发送逻辑
+  // 读取SSID和密码
+  invoke('write_ssid_and_password', {ssid: ssid.value.toString(), password: password.value.toString()}).then((result) => {
+    messageService.info("设置WIFI成功，即将重启设备");
+    restartDevice();
+  }).catch((error) => {
+    messageService.error("设置WIFI失败: " + error);
+  });
 }
 
 function flashFirmware() {
-  logContent.value += '\n开始刷写固件...';
-  // 实现固件刷写逻辑
+  deviceService.flashESP32();
 }
 
 function restartDevice() {
-  logContent.value += '\n重启设备...';
-  // 实现重启逻辑
+  deviceService.restartESP32();
 }
 
 function updateSlider(event, sliderName) {

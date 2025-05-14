@@ -7,7 +7,7 @@ mod websocket;
 use paper_tracker_config::config::init_config;
 use updater::version_check::check_for_updates;
 use serial::esptools::{flash_esp32, restart_esp32};
-use serial::esp32::start_serial_mod;
+use serial::esp32::{start_serial_mod, write_brightness, write_ssid_and_password };
 use websocket::global::init_global_video_streams;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -33,6 +33,8 @@ pub fn run() {
             check_for_updates,
             flash_esp32,
             restart_esp32,
+            write_brightness,
+            write_ssid_and_password,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -563,3 +563,39 @@ pub fn start_serial_mod() {
     // Initialize the global serial connection
     crate::serial::global::init_global_serial();
 }
+
+
+#[tauri::command(rename_all = "snake_case")]
+pub fn write_ssid_and_password(
+    ssid: String,
+    password: String,
+) -> Result<(), String> {
+    // 获取全局串口实例
+    let mut esp32_serial_lock = ESP32_SERIAL.lock().unwrap();
+    println!("---------------------locked---------------------");
+    if let Some(serial) = esp32_serial_lock.as_mut() {
+    println!("---------------------sending---------------------");
+        // 发送SSID和密码
+        let data = format!("A2SSID{}PWD{}B2", ssid, password);
+        serial.write(&data)?;
+        Ok(())
+    } else {
+        Err("串口未连接".to_string())
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub fn write_brightness(
+    brightness: u32,
+) -> Result<(), String> {
+    // 获取全局串口实例
+    let mut esp32_serial_lock = ESP32_SERIAL.lock().unwrap();
+    if let Some(serial) = esp32_serial_lock.as_mut() {
+        // 发送亮度
+        let data = format!("A6{}B6", brightness);
+        serial.write(&data)?;
+        Ok(())
+    } else {
+        Err("串口未连接".to_string())
+    }
+}
