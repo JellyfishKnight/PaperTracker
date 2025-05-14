@@ -1,118 +1,36 @@
-use tauri::{Window, State, Emitter};
+// integration/serial_commands.rs
+
 use std::sync::{Arc, Mutex};
-use crate::serial::{SerialClient, SerialEvent};
+use tauri::{command, State};
+use crate::serial::SerialClient;
 
-// Shared state for serial communication
-pub struct SerialState {
-    pub client: Arc<Mutex<SerialClient>>,
-}
+type SerialClientState = Arc<Mutex<SerialClient>>;
 
-impl SerialState {
-    pub fn new() -> Self {
-        SerialState {
-            client: Arc::new(Mutex::new(SerialClient::new())),
-        }
-    }
-}
-
-// Tauri command to write WiFi SSID and password
-#[tauri::command]
-pub fn write_ssid_and_password(
-    ssid: String,
-    password: String,
-    state: State<'_, SerialState>,
-) -> Result<(), String> {
-    let client = state.client.lock().unwrap();
+#[command]
+pub fn write_ssid_and_password(state: State<SerialClientState>, ssid: String, password: String) -> Result<(), String> {
+    let client = state.lock().unwrap();
     client.send_wifi_config(ssid, password)
 }
 
-// Tauri command to set brightness
-#[tauri::command]
-pub fn write_brightness(
-    brightness: u32,
-    state: State<'_, SerialState>,
-) -> Result<(), String> {
-    let client = state.client.lock().unwrap();
+#[command]
+pub fn write_brightness(state: State<SerialClientState>, brightness: u32) -> Result<(), String> {
+    let client = state.lock().unwrap();
     client.set_brightness(brightness)
 }
 
-// Tauri command to restart ESP32
-#[tauri::command]
-pub fn restart_esp32(
-    window: Window,
-    state: State<'_, SerialState>,
-) -> Result<(), String> {
-    // Create a clone of the window to use in the event handler
-    let window_clone = window.clone();
-    
-    // Set up event forwarding
-    let client = state.client.lock().unwrap();
-    let event_rx = client.get_event_receiver();
-    
-    std::thread::spawn(move || {
-        while let Ok(event) = event_rx.recv() {
-            match event {
-                SerialEvent::RestartProgress { progress, message } => {
-                    let _ = window_clone.emit("esp32_operation", serde_json::json!({
-                        "progress": progress,
-                        "message": message,
-                        "status": if progress >= 100.0 { "success" } else { "running" },
-                    }));
-                }
-                SerialEvent::Error(error) => {
-                    let _ = window_clone.emit("esp32_operation", serde_json::json!({
-                        "progress": 100.0,
-                        "message": error,
-                        "status": "error",
-                    }));
-                }
-                _ => {}
-            }
-        }
-    });
-    
-    // Send restart command
+#[command]
+pub fn restart_esp32(state: State<SerialClientState>) -> Result<(), String> {
+    let client = state.lock().unwrap();
     client.restart_device()
 }
 
-// Tauri command to flash ESP32 firmware
-#[tauri::command]
+#[command]
 pub fn flash_esp32(
-    window: Window,
-    device_type: String,
+    state: State<SerialClientState>, 
+    device_type: String, 
     firmware_type: String,
-    firmware_path: Option<String>,
-    state: State<'_, SerialState>,
+    firmware_path: Option<String>
 ) -> Result<(), String> {
-    // Create a clone of the window to use in the event handler
-    let window_clone = window.clone();
-    
-    // Set up event forwarding
-    let client = state.client.lock().unwrap();
-    let event_rx = client.get_event_receiver();
-    
-    std::thread::spawn(move || {
-        while let Ok(event) = event_rx.recv() {
-            match event {
-                SerialEvent::FlashProgress { progress, message } => {
-                    let _ = window_clone.emit("esp32_operation", serde_json::json!({
-                        "progress": progress,
-                        "message": message,
-                        "status": if progress >= 100.0 { "success" } else { "running" },
-                    }));
-                }
-                SerialEvent::Error(error) => {
-                    let _ = window_clone.emit("esp32_operation", serde_json::json!({
-                        "progress": 100.0,
-                        "message": error,
-                        "status": "error",
-                    }));
-                }
-                _ => {}
-            }
-        }
-    });
-    
-    // Send flash command
+    let client = state.lock().unwrap();
     client.flash_firmware(device_type, firmware_type, firmware_path)
 }

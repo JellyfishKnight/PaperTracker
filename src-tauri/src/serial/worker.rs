@@ -166,7 +166,7 @@ impl SerialWorker {
     fn send_data(&mut self, data: Vec<u8>) {
         match &mut self.port_state {
             PortState::Connected { handle, .. } => {
-                match handle.write(&data) {
+                match handle.write_all(&data) {
                     Ok(_) => {
                         self.response_tx.send(SerialResponse::DataSent).ok();
                     }
@@ -188,7 +188,7 @@ impl SerialWorker {
         let data = format!("A2SSID{}PWD{}B2", ssid, password);
         match &mut self.port_state {
             PortState::Connected { handle, .. } => {
-                match handle.write(data.as_bytes()) {
+                match handle.write_all(data.as_bytes()) {
                     Ok(_) => {
                         self.response_tx.send(SerialResponse::WifiConfigSent).ok();
                     }
@@ -210,7 +210,7 @@ impl SerialWorker {
         let data = format!("A6{}B6", brightness);
         match &mut self.port_state {
             PortState::Connected { handle, .. } => {
-                match handle.write(data.as_bytes()) {
+                match handle.write_all(data.as_bytes()) {
                     Ok(_) => {
                         self.response_tx.send(SerialResponse::BrightnessSet).ok();
                     }
@@ -230,6 +230,7 @@ impl SerialWorker {
     // Process incoming serial data
     fn process_serial_data(&mut self, data: String) {
         // Find and process packets in the data
+        println!("Processing serial data: {}", data);
         let mut remaining = data;
         while let Some(start) = remaining.find('A') {
             // Trim data before start marker
@@ -457,7 +458,6 @@ pub fn find_esp32_port() -> Option<String> {
             Ok(ports) => ports,
             Err(_) => return None,
         };
-        
         for port in ports {
             if let serialport::SerialPortType::UsbPort(usb_info) = port.port_type {
                 // Filter by the specific VID:PID of the ESP32 device

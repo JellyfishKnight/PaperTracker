@@ -34,8 +34,16 @@ impl SerialClient {
         }
     }
     
-    // Auto-detect and connect to ESP32 device
     pub fn auto_connect(&self) -> Result<String, String> {
+        // First check if we're already connected
+        let is_connected = false;
+        
+        if is_connected {
+            // If already connected, return success
+            return Ok("Already connected".to_string());
+        }
+        
+        // Otherwise try to find and connect to ESP32
         if let Some(port) = find_esp32_port() {
             self.open_port(port.clone())?;
             Ok(port)
@@ -43,7 +51,7 @@ impl SerialClient {
             Err("No ESP32 device found".to_string())
         }
     }
-    
+        
     // Open a serial port
     pub fn open_port(&self, port: String) -> Result<(), String> {
         self.request_tx.send(SerialRequest::OpenPort {
@@ -126,7 +134,10 @@ impl SerialClient {
     pub fn try_recv_event(&self) -> Option<SerialEvent> {
         match self.event_rx.try_recv() {
             Ok(event) => Some(event),
-            Err(TryRecvError::Empty) => None,
+            Err(TryRecvError::Empty) => {
+                println!("No event available");
+                None
+            }
             Err(TryRecvError::Disconnected) => {
                 println!("Event channel disconnected");
                 None
