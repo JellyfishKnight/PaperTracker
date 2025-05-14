@@ -1,5 +1,6 @@
-#[allow(unused)]
-pub mod esp32;
-#[allow(unused)]
-pub mod esptools;
-pub mod global;
+pub mod messages;
+pub mod worker;
+pub mod client;
+
+pub use messages::{SerialRequest, SerialResponse, SerialEvent, DeviceStatus};
+pub use client::SerialClient;

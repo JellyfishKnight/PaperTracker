@@ -3,18 +3,13 @@ mod paper_tracker_config;
 mod utils;
 mod serial;
 mod websocket;
+mod integration;
 
 use paper_tracker_config::config::init_config;
+use tauri::Manager;
 use updater::version_check::check_for_updates;
-use serial::esptools::{flash_esp32, restart_esp32};
-use serial::esp32::{start_serial_mod, write_brightness, write_ssid_and_password };
-use websocket::global::init_global_video_streams;
-
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
+use integration::serial_commands::{write_ssid_and_password, write_brightness, restart_esp32, flash_esp32};
+use integration::video_commands::{update_stream_ip, is_device_connected, get_device_status};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -22,19 +17,26 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             init_config(app.handle())?;
-            println!("初始化串口模块");
-            start_serial_mod();
-            println!("初始化视频模块");
-            init_global_video_streams();
+            
+            // Initialize services
+            let (serial_state, video_state) = integration::init_services();
+            
+            // Register states
+            app.manage(serial_state);
+            app.manage(video_state);
+            
+            println!("Application initialized successfully");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            greet, 
             check_for_updates,
-            flash_esp32,
-            restart_esp32,
-            write_brightness,
             write_ssid_and_password,
+            write_brightness,
+            restart_esp32,
+            flash_esp32,
+            update_stream_ip,
+            is_device_connected,
+            get_device_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
