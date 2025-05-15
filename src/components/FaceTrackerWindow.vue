@@ -220,6 +220,8 @@
 <script setup>
 import { ref, reactive } from 'vue';
 import deviceService from '../functional/deviceService';
+import messageService from '../functional/pop_window/messageService';
+import { invoke } from '@tauri-apps/api/core';
 
 // 页面状态
 const currentPage = ref('main');
@@ -267,9 +269,8 @@ const calibration = reactive({
 // 方法
 function sendWifiSettings() {
   // 读取SSID和密码
-  invoke('write_ssid_and_password', {ssid: ssid.value.toString(), password: password.value.toString()}).then((result) => {
-    messageService.info("设置WIFI成功，即将重启设备");
-    restartDevice();
+  invoke('write_ssid_and_password', {ssid: ssid.value, password: password.value}).then((result) => {
+    messageService.info("设置WIFI成功，请重启设备");
   }).catch((error) => {
     messageService.error("设置WIFI失败: " + error);
   });

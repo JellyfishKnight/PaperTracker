@@ -84,7 +84,9 @@ impl ReconnectManager {
                                     println!("Detected serial device error event");
                                     disconnect_detected = true;
                                 },
-                                _ => {}
+                                _ => {
+                                    println!("no disconnect event detected");
+                                }
                             }
                         }
                     }

@@ -5,8 +5,9 @@ use std::process::{Command, Stdio};
 use std::io::{BufReader, BufRead};
 use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 use regex::Regex;
+use crate::serial::messages::WrongWifiOrPassword;
 use crate::utils::consts::*;
-use super::messages::{SerialRequest, SerialResponse, SerialEvent, DeviceStatus};
+use super::messages::{DeviceStatus, SerialEvent, SerialMessage, SerialRequest, SerialResponse};
 
 // Represents the state of a serial port connection
 enum PortState {
@@ -25,6 +26,8 @@ pub struct SerialWorker {
     response_tx: Sender<SerialResponse>,
     // Channel for sending events
     event_tx: Sender<SerialEvent>,
+    // 
+    message_tx: Sender<SerialMessage>,
     // Current state of the port
     port_state: PortState,
     // Flag to indicate if the worker should keep running
@@ -37,11 +40,13 @@ impl SerialWorker {
         request_rx: Receiver<SerialRequest>,
         response_tx: Sender<SerialResponse>,
         event_tx: Sender<SerialEvent>,
+        message_tx: Sender<SerialMessage>,
     ) -> Self {
         SerialWorker {
             request_rx,
             response_tx,
             event_tx,
+            message_tx,
             port_state: PortState::Disconnected,
             running: true,
         }
@@ -157,7 +162,9 @@ impl SerialWorker {
     fn disconnect_port(&mut self) {
         if let PortState::Connected { port, .. } = &self.port_state {
             println!("Closing serial port: {}", port);
-            self.event_tx.send(SerialEvent::DeviceDisconnected).ok();
+            if let Err(e) = self.event_tx.send(SerialEvent::DeviceDisconnected) {
+                println!("Failed to send disconnect event: {}", e);
+            }        
         }
         self.port_state = PortState::Disconnected;
     }
@@ -230,9 +237,13 @@ impl SerialWorker {
     // Process incoming serial data
     fn process_serial_data(&mut self, data: String) {
         // Find and process packets in the data
-        println!("Processing serial data: {}", data);
         let mut remaining = data;
         while let Some(start) = remaining.find('A') {
+            // if the char after 'A' is not a digit, skip this packet
+            if remaining[start + 1..].chars().next().unwrap_or(' ') < '0' || remaining[start + 1..].chars().next().unwrap_or(' ') > '9' {
+                println!("{}", remaining);
+                return ;
+            }
             // Trim data before start marker
             remaining = remaining[start..].to_string();
             
@@ -287,6 +298,11 @@ impl SerialWorker {
                 if let Some(caps) = re.captures(packet) {
                     let ssid = caps.get(1).unwrap().as_str().to_string();
                     let pwd = caps.get(2).unwrap().as_str().to_string();
+                    // Send WiFi error event
+                    self.message_tx.send(SerialMessage::WrongWifiOrPassword(WrongWifiOrPassword {
+                        ssid: ssid.clone(),
+                        password: pwd.clone(),
+                    })).ok();
                     println!("WiFi error packet received: SSID = {}, PWD = {}", ssid, pwd);
                 }
             }
@@ -305,7 +321,7 @@ impl SerialWorker {
                     let ip = ip_parts.join(".");
                     
                     // Send device status event
-                    self.event_tx.send(SerialEvent::DeviceStatus(DeviceStatus {
+                    self.message_tx.send(SerialMessage::DeviceStatus(DeviceStatus {
                         ip,
                         brightness,
                         power,
@@ -482,9 +498,10 @@ pub fn spawn_serial_worker(
     request_rx: Receiver<SerialRequest>,
     response_tx: Sender<SerialResponse>,
     event_tx: Sender<SerialEvent>,
+    message_tx: Sender<SerialMessage>,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        let mut worker = SerialWorker::new(request_rx, response_tx, event_tx);
+        let mut worker = SerialWorker::new(request_rx, response_tx, event_tx, message_tx);
         worker.run();
     })
 }

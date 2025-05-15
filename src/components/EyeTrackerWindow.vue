@@ -251,8 +251,7 @@ function centerRightEye() {
 function sendWifiSettings() {
   // 读取SSID和密码
   invoke('write_ssid_and_password', {ssid: ssid.value, password: password.value}).then((result) => {
-    messageService.info("设置WIFI成功，即将重启设备");
-    restartDevice();
+    messageService.info("设置WIFI成功，请重启设备");
   }).catch((error) => {
     messageService.error("设置WIFI失败: " + error);
   });

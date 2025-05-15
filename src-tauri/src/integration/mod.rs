@@ -3,6 +3,7 @@
 pub mod serial_commands;
 pub mod video_commands;
 pub mod reconnect_manager;
+pub mod serial_messages;
 
 use std::sync::{Arc, Mutex};
 use crate::serial::SerialClient;
@@ -22,6 +23,10 @@ pub fn init_services() -> (Arc<Mutex<SerialClient>>, Arc<Mutex<VideoStreamManage
     // Create clients
     let serial_client = Arc::new(Mutex::new(SerialClient::new()));
     let video_manager = Arc::new(Mutex::new(VideoStreamManager::new()));
+
+    serial_messages::listen_for_serial_events(
+        serial_client.lock().unwrap().get_message_receiver(), 
+        video_manager.clone());
     
     // Get video clients for each device type (non-blocking)
     let manager = video_manager.lock().unwrap();

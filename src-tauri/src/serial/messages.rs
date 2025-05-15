@@ -67,21 +67,9 @@ pub enum SerialResponse {
     FlashFailed(String),
 }
 
-// Device status information from ESP32
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DeviceStatus {
-    pub ip: String,
-    pub brightness: u32,
-    pub power: u32,
-    pub version: u32,
-    pub device_type: u32,
-}
-
 // Event messages sent from the worker
 #[derive(Debug, Clone)]
 pub enum SerialEvent {
-    // Device status update
-    DeviceStatus(DeviceStatus),
     // Device connected
     DeviceConnected {
         port: String,
@@ -100,4 +88,27 @@ pub enum SerialEvent {
     },
     // Error message
     Error(String),
+}
+
+// Device status information from ESP32
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceStatus {
+    pub ip: String,
+    pub brightness: u32,
+    pub power: u32,
+    pub version: u32,
+    pub device_type: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WrongWifiOrPassword {
+    pub ssid: String,
+    pub password: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum SerialMessage {
+    // Device status update
+    DeviceStatus(DeviceStatus),
+    WrongWifiOrPassword(WrongWifiOrPassword),
 }

@@ -1,6 +1,6 @@
-use crossbeam::channel::{self, Receiver, Sender, TryRecvError};
+use crossbeam::channel::{self, Receiver, RecvError, Sender, TryRecvError};
 use std::thread::{self, JoinHandle};
-use super::messages::{SerialRequest, SerialResponse, SerialEvent};
+use super::messages::{SerialEvent, SerialMessage, SerialRequest, SerialResponse};
 use super::worker::{spawn_serial_worker, find_esp32_port};
 
 // Client API for serial communication
@@ -11,6 +11,8 @@ pub struct SerialClient {
     response_rx: Receiver<SerialResponse>,
     // Channel for receiving events from the worker
     event_rx: Receiver<SerialEvent>,
+    //
+    message_rx: Receiver<SerialMessage>,
     // Handle to the worker thread
     worker_handle: Option<JoinHandle<()>>,
 }
@@ -22,14 +24,16 @@ impl SerialClient {
         let (request_tx, request_rx) = crossbeam::channel::unbounded();
         let (response_tx, response_rx) = crossbeam::channel::unbounded();
         let (event_tx, event_rx) = crossbeam::channel::unbounded();
+        let (message_tx, message_rx) = crossbeam::channel::unbounded();
         
         // Spawn worker thread
-        let worker_handle = spawn_serial_worker(request_rx, response_tx, event_tx);
+        let worker_handle = spawn_serial_worker(request_rx, response_tx, event_tx, message_tx);
         
         SerialClient {
             request_tx,
             response_rx,
             event_rx,
+            message_rx,
             worker_handle: Some(worker_handle),
         }
     }
@@ -153,6 +157,32 @@ impl SerialClient {
         thread::spawn(move || {
             while let Ok(event) = event_rx.recv() {
                 if tx.send(event).is_err() {
+                    break;
+                }
+            }
+        });
+        
+        rx
+    }
+
+    pub fn try_recv_message(&self) -> Option<SerialMessage> {
+        match self.message_rx.try_recv() {
+            Ok(message) => Some(message),
+            Err(TryRecvError::Empty) => None,
+            Err(TryRecvError::Disconnected) => {
+                println!("Message channel disconnected");
+                None
+            }
+        }
+    }
+
+    pub fn get_message_receiver(&self) -> Receiver<SerialMessage> {
+        let (tx, rx) = crossbeam::channel::unbounded();
+        let message_rx = self.message_rx.clone();
+        
+        thread::spawn(move || {
+            while let Ok(message) = message_rx.recv() {
+                if tx.send(message).is_err() {
                     break;
                 }
             }
