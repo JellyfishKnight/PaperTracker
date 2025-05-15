@@ -163,8 +163,12 @@ impl VideoStreamWorker {
     // Set up connection URLs and start connecting
     fn connect(&mut self, url: String, device_type: DeviceType) {
         // If already connected to the requested URL, do nothing
-        if self.status == StreamStatus::Connected && self.current_url == url {
+        if self.status == StreamStatus::Connected {
             self.response_tx.send(VideoResponse::Connected { url }).ok();
+            return;
+        }
+
+        if self.current_url == url {
             return;
         }
 

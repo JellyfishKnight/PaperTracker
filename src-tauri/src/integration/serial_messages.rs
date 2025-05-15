@@ -18,7 +18,6 @@ pub fn listen_for_serial_events(
                 SerialMessage::DeviceStatus(status) => {
                     // Only update if it's a valid device type and has a valid IP
                     if !status.ip.is_empty() {
-                        println!("Updating stream IP for device type {:?} to {}", status.device_type, status.ip);
                         // Convert device_type from u32 to DeviceType enum
                         match status.device_type {
                             DEVICE_TYPE_FACE => {
