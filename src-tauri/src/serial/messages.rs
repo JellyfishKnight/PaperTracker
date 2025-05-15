@@ -74,8 +74,6 @@ pub enum SerialEvent {
     DeviceConnected {
         port: String,
     },
-    // Device disconnected
-    DeviceDisconnected,
     // Firmware flash progress
     FlashProgress {
         progress: f32,

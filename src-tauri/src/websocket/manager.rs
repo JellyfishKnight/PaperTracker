@@ -21,11 +21,11 @@ impl VideoStreamManager {
     pub fn get_client(&self, device_type: DeviceType) -> VideoStreamClient {
         let mut clients = self.clients.lock().unwrap();
         
-        if !clients.contains_key(&device_type) {
+        clients.entry(device_type).or_insert_with(|| {
             // Create a new client
             let client = VideoStreamClient::new();
-            clients.insert(device_type, client);
-        }
+            client
+        });
         
         // Clone is only cloning the channels, not the entire client
         clients.get(&device_type).unwrap().clone()

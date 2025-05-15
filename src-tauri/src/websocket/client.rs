@@ -117,6 +117,10 @@ impl VideoStreamClient {
         
         rx
     }
+
+    pub fn get_request_sender(&self) -> Sender<VideoRequest> {
+        self.request_tx.clone()
+    }
 }
 
 impl Drop for VideoStreamClient {

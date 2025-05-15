@@ -1,35 +1,44 @@
 use std::sync::{Arc, Mutex};
 use crate::serial::messages::SerialMessage;
 use crate::serial::{SerialClient, SerialEvent};
+use crate::websocket::{self, VideoRequest};
 use crate::websocket::{manager::VideoStreamManager, DeviceType};
 use crate::utils::consts::*;
-use crossbeam::channel::Receiver;
+use crossbeam::channel::{Receiver, Sender};
 
 pub fn listen_for_serial_events(
     serial_rx: Receiver<SerialMessage>, 
-    video_manager: Arc<Mutex<VideoStreamManager>>) {
-    let video_manager = video_manager.clone();
-    
+    face_tx: Sender<VideoRequest>,
+    left_eye_tx: Sender<VideoRequest>,
+    right_eye_tx: Sender<VideoRequest>,) {
     std::thread::spawn(move || {
+        println!("Listening for serial events...");
         while let Ok(event) = serial_rx.recv() {
             match event {
                 SerialMessage::DeviceStatus(status) => {
-                    // Convert device_type from u32 to DeviceType enum
-                    let device_type = match status.device_type {
-                        DEVICE_TYPE_FACE => DeviceType::Face,
-                        DEVICE_TYPE_LEFT_EYE => DeviceType::LeftEye,
-                        DEVICE_TYPE_RIGHT_EYE => DeviceType::RightEye,
-                        _ => DeviceType::Unknown,
-                    };
-                    
                     // Only update if it's a valid device type and has a valid IP
-                    if device_type != DeviceType::Unknown && !status.ip.is_empty() {
-                        println!("Updating stream IP for device type {:?} to {}", device_type, status.ip);
-                        let _ = video_manager.lock().unwrap().update_device_ip(device_type, status.ip);
+                    if !status.ip.is_empty() {
+                        println!("Updating stream IP for device type {:?} to {}", status.device_type, status.ip);
+                        // Convert device_type from u32 to DeviceType enum
+                        match status.device_type {
+                            DEVICE_TYPE_FACE => {
+                                face_tx.send(VideoRequest::Connect { url: status.ip, device_type: websocket::messages::DeviceType::Face }).ok();
+                            },
+                            DEVICE_TYPE_LEFT_EYE => {
+                                left_eye_tx.send(VideoRequest::Connect { url: status.ip, device_type: websocket::messages::DeviceType::LeftEye }).ok();
+                            },
+                            DEVICE_TYPE_RIGHT_EYE => {
+                                right_eye_tx.send(VideoRequest::Connect { url: status.ip, device_type: websocket::messages::DeviceType::RightEye }).ok();
+                            }
+                            _ => {
+                                println!("Unknown device type: {:?}", status.device_type);
+                            }
+                        };
                     }
+
                 },
                 _ => {
-                
+                    println!("Received unknown event: {:?}", event);
                 } // Ignore other events
             }
         }

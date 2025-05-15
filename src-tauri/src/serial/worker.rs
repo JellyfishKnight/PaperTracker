@@ -80,6 +80,7 @@ impl SerialWorker {
                     }
                     Ok(_) => {
                         // No data read, continue
+                        println!("Serial port read returned 0 bytes");
                     }
                     Err(e) => {
                         println!("Serial read error: {}", e);
@@ -162,9 +163,6 @@ impl SerialWorker {
     fn disconnect_port(&mut self) {
         if let PortState::Connected { port, .. } = &self.port_state {
             println!("Closing serial port: {}", port);
-            if let Err(e) = self.event_tx.send(SerialEvent::DeviceDisconnected) {
-                println!("Failed to send disconnect event: {}", e);
-            }        
         }
         self.port_state = PortState::Disconnected;
     }
@@ -313,21 +311,21 @@ impl SerialWorker {
                     let raw_ip = caps.get(2).unwrap().as_str();
                     let power = caps.get(3).unwrap().as_str().parse::<u32>().unwrap_or(0);
                     let version = caps.get(4).unwrap().as_str().parse::<u32>().unwrap_or(0);
-                    
                     let padded_ip = format!("{:0>12}", raw_ip);
                     let ip_parts = (0..4)
                         .map(|i| padded_ip[i * 3..(i + 1) * 3].parse::<u8>().unwrap_or(0).to_string())
                         .collect::<Vec<_>>();
                     let ip = ip_parts.join(".");
-                    
                     // Send device status event
-                    self.message_tx.send(SerialMessage::DeviceStatus(DeviceStatus {
+                    if let Err(e) = self.message_tx.send(SerialMessage::DeviceStatus(DeviceStatus {
                         ip,
                         brightness,
                         power,
                         version,
                         device_type: version, // The version field is used as device type
-                    })).ok();
+                    })) {
+                        println!("Failed to send device status: {}", e);
+                    }
                 }
             }
             '6' => {

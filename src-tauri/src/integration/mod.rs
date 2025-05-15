@@ -24,24 +24,28 @@ pub fn init_services() -> (Arc<Mutex<SerialClient>>, Arc<Mutex<VideoStreamManage
     let serial_client = Arc::new(Mutex::new(SerialClient::new()));
     let video_manager = Arc::new(Mutex::new(VideoStreamManager::new()));
 
-    serial_messages::listen_for_serial_events(
-        serial_client.lock().unwrap().get_message_receiver(), 
-        video_manager.clone());
-    
+    let mut reconnect_manager: ReconnectManager;
     // Get video clients for each device type (non-blocking)
-    let manager = video_manager.lock().unwrap();
-    let left_eye_client = manager.get_client(DeviceType::LeftEye);
-    let right_eye_client = manager.get_client(DeviceType::RightEye);
-    let face_client = manager.get_client(DeviceType::Face);
-    drop(manager); // Release lock before creating manager
-    
-    // Create and start reconnect manager (connections happen in background threads)
-    let mut reconnect_manager = ReconnectManager::new(
-        serial_client.clone(),
-        left_eye_client,
-        right_eye_client,
-        face_client
-    );
+    {
+        let manager = video_manager.lock().unwrap();
+        let left_eye_client = manager.get_client(DeviceType::LeftEye);
+        let right_eye_client = manager.get_client(DeviceType::RightEye);
+        let face_client = manager.get_client(DeviceType::Face);
+
+        serial_messages::listen_for_serial_events(
+            serial_client.lock().unwrap().get_message_receiver(), 
+            face_client.get_request_sender(),
+            left_eye_client.get_request_sender(),
+            right_eye_client.get_request_sender());
+
+        // Create and start reconnect manager (connections happen in background threads)
+        reconnect_manager = ReconnectManager::new(
+            serial_client.clone(),
+            left_eye_client,
+            right_eye_client,
+            face_client
+        );
+    }
     
     // Start the reconnection monitoring (non-blocking - will try connections in background)
     reconnect_manager.start();

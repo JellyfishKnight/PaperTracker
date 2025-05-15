@@ -39,14 +39,6 @@ impl SerialClient {
     }
     
     pub fn auto_connect(&self) -> Result<String, String> {
-        // First check if we're already connected
-        let is_connected = false;
-        
-        if is_connected {
-            // If already connected, return success
-            return Ok("Already connected".to_string());
-        }
-        
         // Otherwise try to find and connect to ESP32
         if let Some(port) = find_esp32_port() {
             self.open_port(port.clone())?;
@@ -139,7 +131,6 @@ impl SerialClient {
         match self.event_rx.try_recv() {
             Ok(event) => Some(event),
             Err(TryRecvError::Empty) => {
-                println!("No event available");
                 None
             }
             Err(TryRecvError::Disconnected) => {

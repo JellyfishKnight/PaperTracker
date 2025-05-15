@@ -49,8 +49,7 @@ impl ReconnectManager {
             println!("Serial connection guardian started");
             
             // Track connection state locally
-            let mut connected = false;
-            
+            let mut connected = false;  
             while *running.lock().unwrap() {
                 if !connected {
                     println!("Serial connection not established");
@@ -74,20 +73,9 @@ impl ReconnectManager {
                     {
                         let serial_client = client.lock().unwrap();
                         // Check for disconnect events
-                        if let Some(event) = serial_client.try_recv_event() {
-                            match event {
-                                SerialEvent::DeviceDisconnected => {
-                                    println!("Detected serial device disconnect event");
-                                    disconnect_detected = true;
-                                },
-                                SerialEvent::Error(_) => {
-                                    println!("Detected serial device error event");
-                                    disconnect_detected = true;
-                                },
-                                _ => {
-                                    println!("no disconnect event detected");
-                                }
-                            }
+                        if let Some(SerialEvent::Error(e)) = serial_client.try_recv_event() {
+                            println!("Detected serial device error: {}", e);
+                            disconnect_detected = true;
                         }
                     }
                     
