@@ -221,7 +221,7 @@
 import { ref, reactive } from 'vue';
 import deviceService from '../functional/deviceService';
 import messageService from '../functional/pop_window/messageService';
-import { invoke } from '@tauri-apps/api/core';
+import { Channel, invoke } from '@tauri-apps/api/core';
 
 // 页面状态
 const currentPage = ref('main');
@@ -265,6 +265,11 @@ const calibration = reactive({
   tongueLeft: 24,
   tongueRight: 24
 });
+
+onMounted(() => {
+
+});
+
 
 // 方法
 function sendWifiSettings() {

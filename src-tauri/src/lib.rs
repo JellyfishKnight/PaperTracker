@@ -10,6 +10,8 @@ use tauri::Manager;
 use updater::version_check::check_for_updates;
 use integration::serial_commands::{write_ssid_and_password, write_brightness, restart_esp32, flash_esp32};
 use integration::video_commands::{update_stream_ip, is_device_connected, get_device_status};
+use integration::image_ui_updater::{ImageStreamState, start_face_stream, start_left_eye_stream, start_right_eye_stream};
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -17,13 +19,14 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             init_config(app.handle())?;
-            
             // Initialize services
             let (serial_state, video_state) = integration::init_services();
-            
             // Register states
             app.manage(serial_state);
             app.manage(video_state);
+            let image_stream_state = std::sync::Arc::new(ImageStreamState::default());
+            app.manage(image_stream_state);
+
             
             println!("Application initialized successfully");
             Ok(())
@@ -37,6 +40,9 @@ pub fn run() {
             update_stream_ip,
             is_device_connected,
             get_device_status,
+            start_face_stream,
+            start_left_eye_stream,
+            start_right_eye_stream,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

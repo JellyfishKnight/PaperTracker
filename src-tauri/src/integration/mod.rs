@@ -4,6 +4,7 @@ pub mod serial_commands;
 pub mod video_commands;
 pub mod reconnect_manager;
 pub mod serial_messages;
+pub mod image_ui_updater;
 
 use std::sync::{Arc, Mutex};
 use crate::serial::SerialClient;
