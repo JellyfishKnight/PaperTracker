@@ -21,10 +21,10 @@ pub fn run() {
             init_config(app.handle())?;
             // Initialize services
             let (serial_state, video_state) = integration::init_services();
+            let image_stream_state = ImageStreamState::default();
             // Register states
             app.manage(serial_state);
             app.manage(video_state);
-            let image_stream_state = std::sync::Arc::new(ImageStreamState::default());
             app.manage(image_stream_state);
 
             

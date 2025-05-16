@@ -1,3 +1,4 @@
+use once_cell::sync::Lazy;
 use tauri::Manager;
 // image_ui_updater.rs
 use tauri::{AppHandle, Runtime, State, Window, ipc::Channel};

@@ -23,8 +23,10 @@
       </div>
     </div>
 
+    <!-- 内容页面 -->
     <!-- 主追踪页面内容 -->
     <div v-if="currentPage === 'settings'" class="page-content">
+      <!-- Settings page content... -->
       <div class="eye-tracking-layout">
         <!-- 左眼部分 -->
         <div class="eye-section">
@@ -82,6 +84,7 @@
 
     <!-- 设置页面内容 -->
     <div v-if="currentPage === 'tracking'" class="page-content settings-page">
+      <!-- Tracking page content... -->
       <div class="settings-layout">
         <div class="left-column">
           <div class="camera-views">
@@ -187,86 +190,91 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import deviceService from '../functional/deviceService';
 import { invoke } from '@tauri-apps/api/core';
 import messageService from '../functional/pop_window/messageService';
 
+type PageType = 'tracking' | 'settings';
+type EnergyMode = 'normal' | 'eco' | 'performance';
+
 // 页面状态
-const currentPage = ref('tracking');
+const currentPage = ref<PageType>('tracking');
 
 // 状态指示器
-const serialStatus = ref('当前无串口连接');
-const leftEyeWifiStatus = ref('左眼WIFI未连接');
-const rightEyeWifiStatus = ref('右眼WIFI未连接');
+const serialStatus = ref<string>('当前无串口连接');
+const leftEyeWifiStatus = ref<string>('左眼WIFI未连接');
+const rightEyeWifiStatus = ref<string>('右眼WIFI未连接');
 
 // 相机画面
-const leftEyeImage = ref(null);
-const rightEyeImage = ref(null);
+const leftEyeImage = ref<string | null>(null);
+const rightEyeImage = ref<string | null>(null);
 
 // 表单输入
-const ssid = ref('');
-const password = ref('');
-const leftEyeIP = ref('');
-const rightEyeIP = ref('');
+const ssid = ref<string>('');
+const password = ref<string>('');
+const leftEyeIP = ref<string>('');
+const rightEyeIP = ref<string>('');
 
 // 进度指示器
-const leftEyeOpenness = ref(30);
-const rightEyeOpenness = ref(70);
+const leftEyeOpenness = ref<number>(30);
+const rightEyeOpenness = ref<number>(70);
 
 // 滑块值
-const leftBrightness = ref(50);
-const rightBrightness = ref(50);
-const leftRotation = ref(540); // 0-1080范围的中间值
-const rightRotation = ref(540); // 0-1080范围的中间值
+const leftBrightness = ref<number>(50);
+const rightBrightness = ref<number>(50);
+const leftRotation = ref<number>(540); // 0-1080范围的中间值
+const rightRotation = ref<number>(540); // 0-1080范围的中间值
 
 // 选项
-const energyMode = ref('normal');
+const energyMode = ref<EnergyMode>('normal');
 
 // 日志内容
-const logContent = ref('系统启动中...\n连接设备...');
+const logContent = ref<string>('系统启动中...\n连接设备...');
 
 // 方法
-function calibrateLeftEye() {
+function calibrateLeftEye(): void {
   logContent.value += '\n开始左眼校准...';
   // 实现左眼校准逻辑
 }
 
-function centerLeftEye() {
+function centerLeftEye(): void {
   logContent.value += '\n设置左眼中心...';
   // 实现左眼中心逻辑
 }
 
-function calibrateRightEye() {
+function calibrateRightEye(): void {
   logContent.value += '\n开始右眼校准...';
   // 实现右眼校准逻辑
 }
 
-function centerRightEye() {
+function centerRightEye(): void {
   logContent.value += '\n设置右眼中心...';
   // 实现右眼中心逻辑
 }
 
-function sendWifiSettings() {
+function sendWifiSettings(): void {
   // 读取SSID和密码
-  invoke('write_ssid_and_password', {ssid: ssid.value, password: password.value}).then((result) => {
-    messageService.info("设置WIFI成功，请重启设备");
-  }).catch((error) => {
-    messageService.error("设置WIFI失败: " + error);
-  });
+  invoke('write_ssid_and_password', { ssid: ssid.value, password: password.value })
+    .then(() => {
+      messageService.info("设置WIFI成功，请重启设备");
+    })
+    .catch((error) => {
+      messageService.error("设置WIFI失败: " + error);
+    });
 }
 
-function flashFirmware() {
+function flashFirmware(): void {
   deviceService.flashESP32();
 }
 
-function restartDevice() {
+function restartDevice(): void {
   deviceService.restartESP32();
 }
 
-function updateSlider(event, sliderName) {
-  const rect = event.currentTarget.getBoundingClientRect();
+function updateSlider(event: MouseEvent, sliderName: 'leftBrightness' | 'rightBrightness' | 'leftRotation' | 'rightRotation'): void {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
   const x = event.clientX - rect.left;
   const percentage = Math.min(100, Math.max(0, (x / rect.width) * 100));
   
@@ -326,6 +334,7 @@ function updateSlider(event, sliderName) {
   gap: 15px;
 }
 
+/* Additional styles... */
 /* 眼部追踪页面样式 */
 .eye-tracking-layout {
   display: flex;

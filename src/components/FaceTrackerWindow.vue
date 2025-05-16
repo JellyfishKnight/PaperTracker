@@ -114,6 +114,7 @@
 
     <!-- 标定页面内容 -->
     <div v-if="currentPage === 'calibration'" class="page-content calibration-page">
+      <!-- Calibration page content -->
       <div class="magnification-control">
         <label>放大倍率</label>
         <span>x1</span>
@@ -123,7 +124,7 @@
       <div class="tracking-controls">
         <div class="scroll-container">
           <div class="tracking-parameters">
-            <!-- 左脸颊控制 -->
+            <!-- 参数调整行 -->
             <div class="parameter-row">
               <label>左脸颊</label>
               <div class="slider" @click="updateCalibrationSlider($event, 'cheekLeft')">
@@ -135,7 +136,7 @@
               </div>
             </div>
 
-            <!-- 右脸颊控制 -->
+            <!-- 其他参数行 (略去重复内容) -->
             <div class="parameter-row">
               <label>右脸颊</label>
               <div class="slider" @click="updateCalibrationSlider($event, 'cheekRight')">
@@ -147,7 +148,6 @@
               </div>
             </div>
 
-            <!-- 更多参数：下巴，嘴，舌头控制 -->
             <div class="parameter-row">
               <label>下巴下移</label>
               <div class="slider" @click="updateCalibrationSlider($event, 'jawOpen')">
@@ -170,7 +170,6 @@
               </div>
             </div>
 
-            <!-- 可以根据需要添加更多参数行 -->
             <div class="parameter-row">
               <label>下巴右移</label>
               <div class="slider" @click="updateCalibrationSlider($event, 'jawRight')">
@@ -217,41 +216,59 @@
   </div>
 </template>
 
-<script setup>
-import { ref, reactive, onActivated } from 'vue';
+<script setup lang="ts">
+import { ref, reactive, onMounted } from 'vue';
 import deviceService from '../functional/deviceService';
 import messageService from '../functional/pop_window/messageService';
-import { Channel, invoke } from '@tauri-apps/api/core';
+import { invoke, Channel } from '@tauri-apps/api/core';
+
+type PageType = 'main' | 'calibration';
+type EnergyMode = 'normal' | 'eco' | 'performance';
+
+interface CalibrationValues {
+  cheekLeft: number;
+  cheekRight: number;
+  jawOpen: number;
+  jawLeft: number;
+  jawRight: number;
+  mouthLeft: number;
+  mouthRight: number;
+  tongueOut: number;
+  tongueUp: number;
+  tongueDown: number;
+  tongueLeft: number;
+  tongueRight: number;
+}
 
 // 页面状态
-const currentPage = ref('main');
+const currentPage = ref<PageType>('main');
 
 // 状态指示器
-const wifiStatus = ref('面捕wifi未连接');
-const serialStatus = ref('面捕数据线未连接');
-const ipAddress = ref('');
+const wifiStatus = ref<string>('面捕wifi未连接');
+const serialStatus = ref<string>('面捕数据线未连接');
+const ipAddress = ref<string>('');
 
 // 相机画面
-const cameraImage = ref(null);
-const calibrationImage = ref(null);
+const cameraImage = ref<string | null>(null);
+const calibrationImage = ref<string | null>(null);
 
 // 表单输入
-const ssid = ref('');
-const password = ref('');
+const ssid = ref<string>('');
+const password = ref<string>('');
 
 // 滑块值
-const brightness = ref(50);
-const rotation = ref(540); // 0-1080范围的中间值
+const brightness = ref<number>(50);
+const rotation = ref<number>(540); // 0-1080范围的中间值
 
 // 选项
-const energyMode = ref('normal');
-const useFilter = ref(false);
+const energyMode = ref<EnergyMode>('normal');
+const useFilter = ref<boolean>(false);
 
 // 日志内容
-const logContent = ref('系统启动中...\n连接设备...');
+const logContent = ref<string>('系统启动中...\n连接设备...');
 
 // 校准值
-const calibration = reactive({
+const calibration = reactive<CalibrationValues>({
   cheekLeft: 24,
   cheekRight: 24,
   jawOpen: 24,
@@ -266,27 +283,28 @@ const calibration = reactive({
   tongueRight: 24
 });
 
-
 // 方法
-function sendWifiSettings() {
+function sendWifiSettings(): void {
   // 读取SSID和密码
-  invoke('write_ssid_and_password', {ssid: ssid.value, password: password.value}).then((result) => {
-    messageService.info("设置WIFI成功，请重启设备");
-  }).catch((error) => {
-    messageService.error("设置WIFI失败: " + error);
-  });
+  invoke('write_ssid_and_password', { ssid: ssid.value, password: password.value })
+    .then(() => {
+      messageService.info("设置WIFI成功，请重启设备");
+    })
+    .catch((error) => {
+      messageService.error("设置WIFI失败: " + error);
+    });
 }
 
-function flashFirmware() {
+function flashFirmware(): void {
   deviceService.flashESP32();
 }
 
-function restartDevice() {
+function restartDevice(): void {
   deviceService.restartESP32();
 }
 
-function updateSlider(event, sliderName) {
-  const rect = event.currentTarget.getBoundingClientRect();
+function updateSlider(event: MouseEvent, sliderName: 'brightness' | 'rotation'): void {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
   const x = event.clientX - rect.left;
   const percentage = Math.min(100, Math.max(0, (x / rect.width) * 100));
   
@@ -297,18 +315,32 @@ function updateSlider(event, sliderName) {
   }
 }
 
-function updateCalibrationSlider(event, paramName) {
-  const rect = event.currentTarget.getBoundingClientRect();
+type CalibrationParam = keyof CalibrationValues;
+
+function updateCalibrationSlider(event: MouseEvent, paramName: CalibrationParam): void {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
   const x = event.clientX - rect.left;
   const percentage = Math.min(100, Math.max(0, (x / rect.width) * 100));
   
   calibration[paramName] = percentage;
 }
 
-function showSerialLog() {
+function showSerialLog(): void {
   // 显示串口日志
   alert('显示串口日志');
 }
+
+onMounted(() => {
+  const channel = new Channel<Uint8Array>();
+  channel.onmessage = (message) => {
+    
+  };
+  invoke('start_face_stream', { channel }).then(() => {})
+    .catch((error) => {
+      messageService.error("启动相机流失败: " + error);
+    });
+});
+
 </script>
 
 <style scoped>
@@ -350,6 +382,7 @@ function showSerialLog() {
   gap: 20px;
 }
 
+/* Additional CSS... */
 /* 主布局样式 */
 .main-layout {
   display: flex;

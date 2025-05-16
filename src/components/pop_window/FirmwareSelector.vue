@@ -67,48 +67,57 @@
     </teleport>
   </template>
   
-  <script setup>
+  <script setup lang="ts">
   import { ref, computed, defineExpose } from 'vue';
   import Modal from './Modal.vue';
-  import { invoke } from '@tauri-apps/api/core';
   
-  const show = ref(false);
-  const title = ref('选择固件');
-  const description = ref('请选择要刷写的设备类型和固件版本');
-  const stableVersion = ref('v1.0.0');
-  const betaVersion = ref('v1.1.0-beta');
-  const selectedDevice = ref('face');
-  const selectedFirmware = ref('stable');
-  const customFirmwarePath = ref('');
-  const onConfirm = ref(null);
-  const onCancel = ref(null);
+  type DeviceType = 'face' | 'left_eye' | 'right_eye';
+  type FirmwareType = 'stable' | 'beta' | 'custom';
   
-  const isSelectionValid = computed(() => {
+  interface FirmwareSelection {
+    deviceType: DeviceType;
+    firmwareType: FirmwareType;
+    firmwarePath: string | null;
+  }
+  
+  interface SelectorConfig {
+    title?: string;
+    description?: string;
+    stableVersion?: string;
+    betaVersion?: string;
+    defaultDevice?: DeviceType;
+    defaultFirmware?: FirmwareType;
+    onConfirm?: (selection: FirmwareSelection) => void;
+    onCancel?: () => void;
+  }
+  
+  const show = ref<boolean>(false);
+  const title = ref<string>('选择固件');
+  const description = ref<string>('请选择要刷写的设备类型和固件版本');
+  const stableVersion = ref<string>('v1.0.0');
+  const betaVersion = ref<string>('v1.1.0-beta');
+  const selectedDevice = ref<DeviceType>('face');
+  const selectedFirmware = ref<FirmwareType>('stable');
+  const customFirmwarePath = ref<string>('');
+  const onConfirm = ref<((selection: FirmwareSelection) => void) | null>(null);
+  const onCancel = ref<(() => void) | null>(null);
+  
+  const isSelectionValid = computed<boolean>(() => {
     if (selectedFirmware.value === 'custom') {
       return customFirmwarePath.value !== '';
     }
     return true;
   });
   
-  async function selectCustomFirmware() {
+  async function selectCustomFirmware(): Promise<void> {
     try {
-      const selected = await open({
-        multiple: false,
-        filters: [{
-          name: '固件文件',
-          extensions: ['bin']
-        }]
-      });
-      
-      if (selected) {
-        customFirmwarePath.value = selected;
-      }
+
     } catch (error) {
       console.error('选择文件失败:', error);
     }
   }
   
-  function openSelector(config = {}) {
+  function openSelector(config: SelectorConfig = {}): void {
     title.value = config.title || '选择固件';
     description.value = config.description || '请选择要刷写的设备类型和固件版本';
     stableVersion.value = config.stableVersion || 'v1.0.0';
@@ -121,7 +130,7 @@
     show.value = true;
   }
   
-  function confirmSelection() {
+  function confirmSelection(): void {
     show.value = false;
     if (typeof onConfirm.value === 'function') {
       onConfirm.value({
@@ -132,7 +141,7 @@
     }
   }
   
-  function cancelSelection() {
+  function cancelSelection(): void {
     show.value = false;
     if (typeof onCancel.value === 'function') {
       onCancel.value();

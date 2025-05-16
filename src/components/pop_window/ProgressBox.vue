@@ -30,20 +30,36 @@
     </teleport>
   </template>
   
-  <script setup>
+  <script setup lang="ts">
   import { ref, defineExpose } from 'vue';
   import Modal from './Modal.vue';
   
-  const show = ref(false);
-  const title = ref('操作进行中');
-  const message = ref('');
-  const progress = ref(0);
-  const cancelable = ref(true);
-  const onComplete = ref(null);
-  const onCancel = ref(null);
-  let operationId = null;
+  interface ProgressConfig {
+    message?: string;
+    title?: string;
+    initialProgress?: number;
+    cancelable?: boolean;
+    onComplete?: () => void;
+    onCancel?: () => void;
+    autoProgress?: (currentProgress: number) => number;
+  }
   
-  function openProgress(config) {
+  interface ProgressControl {
+    updateProgress: (newProgress: number) => void;
+    complete: (finalMessage?: string) => void;
+    cancel: () => void;
+  }
+  
+  const show = ref<boolean>(false);
+  const title = ref<string>('操作进行中');
+  const message = ref<string>('');
+  const progress = ref<number>(0);
+  const cancelable = ref<boolean>(true);
+  const onComplete = ref<(() => void) | null>(null);
+  const onCancel = ref<(() => void) | null>(null);
+  let operationId: number | null = null;
+  
+  function openProgress(config: ProgressConfig): ProgressControl {
     message.value = config.message || '正在执行操作...';
     title.value = config.title || '操作进行中';
     progress.value = config.initialProgress || 0;
@@ -59,13 +75,15 @@
     
     // 如果提供了自动进度更新函数，则使用它
     if (typeof config.autoProgress === 'function') {
-      operationId = setInterval(() => {
-        const newProgress = config.autoProgress(progress.value);
+      operationId = window.setInterval(() => {
+        const newProgress = config.autoProgress!(progress.value);
         updateProgress(newProgress);
         
         if (newProgress >= 100) {
-          clearInterval(operationId);
-          operationId = null;
+          if (operationId) {
+            clearInterval(operationId);
+            operationId = null;
+          }
         }
       }, 100);
     }
@@ -74,7 +92,7 @@
       // 返回更新进度的函数，以便调用者可以手动更新进度
       updateProgress,
       // 返回一个完成函数，以便调用者可以手动标记操作为完成
-      complete(finalMessage) {
+      complete(finalMessage?: string) {
         if (finalMessage) {
           message.value = finalMessage;
         }
@@ -94,11 +112,11 @@
     };
   }
   
-  function updateProgress(newProgress) {
+  function updateProgress(newProgress: number): void {
     progress.value = Math.min(100, Math.max(0, newProgress));
   }
   
-  function cancelOperation() {
+  function cancelOperation(): void {
     if (progress.value >= 100) {
       closeModal();
       return;
@@ -115,7 +133,7 @@
     }
   }
   
-  function closeModal() {
+  function closeModal(): void {
     show.value = false;
     if (typeof onComplete.value === 'function') {
       onComplete.value();

@@ -18,18 +18,28 @@
   </teleport>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, defineExpose } from 'vue';
 import Modal from './Modal.vue';
 
-const show = ref(false);
-const message = ref('');
-const title = ref('提示');
-const type = ref('default'); // default, success, error, warning, info
-const buttonText = ref('确定');
-const callback = ref(null);
+type MessageType = 'default' | 'success' | 'error' | 'warning' | 'info';
 
-function openModal(config) {
+interface MessageConfig {
+  message: string;
+  title?: string;
+  type?: MessageType;
+  buttonText?: string;
+  callback?: () => void;
+}
+
+const show = ref<boolean>(false);
+const message = ref<string>('');
+const title = ref<string>('提示');
+const type = ref<MessageType>('default');
+const buttonText = ref<string>('确定');
+const callback = ref<(() => void) | null>(null);
+
+function openModal(config: MessageConfig): void {
   message.value = config.message || '';
   title.value = config.title || '提示';
   type.value = config.type || 'default';
@@ -38,7 +48,7 @@ function openModal(config) {
   show.value = true;
 }
 
-function closeModal() {
+function closeModal(): void {
   show.value = false;
   if (typeof callback.value === 'function') {
     callback.value();

@@ -1,101 +1,19 @@
 <!-- App.vue -->
 <template>
-  <div class="app-container">
-    <!-- 左侧导航栏 -->
-    <div class="nav-sidebar">
-      <button 
-        :class="{ 'nav-active': activePage === 'main' }"
-        @click="changePage('main')"
-      >
-        主页面
-      </button>
-      <button 
-        :class="{ 'nav-active': activePage === 'eye' }"
-        @click="changePage('eye')"
-      >
-        眼追界面
-      </button>
-      <button 
-        :class="{ 'nav-active': activePage === 'face' }"
-        @click="changePage('face')"
-      >
-        面捕界面
-      </button>
-    </div>
-
-    <!-- 主内容区域 -->
-    <div class="content-area">
-      <keep-alive>
-        <component :is="currentComponent" />
-      </keep-alive>
-    </div>
-  </div>
+  <AppLayout v-model:activePage="activePage">
+    <MainWindow v-show="activePage === 'main'" />
+    <EyeTrackerWindow v-show="activePage === 'eye'" />
+    <FaceTrackerWindow v-show="activePage === 'face'" />
+  </AppLayout>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue';
+<script setup lang="ts">
+import { ref } from 'vue';
+import AppLayout from './components/AppLayout.vue';
 import MainWindow from './components/MainWindow.vue';
 import EyeTrackerWindow from './components/EyeTrackerWindow.vue';
 import FaceTrackerWindow from './components/FaceTrackerWindow.vue';
 
-const activePage = ref('main');
-
-function changePage(page) {
-  activePage.value = page;
-}
-
-const currentComponent = computed(() => {
-  switch(activePage.value) {
-    case 'eye': return EyeTrackerWindow;
-    case 'face': return FaceTrackerWindow;
-    default: return MainWindow;
-  }
-});
+type ActivePage = 'main' | 'eye' | 'face';
+const activePage = ref<ActivePage>('main');
 </script>
-
-
-<style scoped>
-.app-container {
-  display: flex;
-  height: 100vh;
-  width: 100%;
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  color: var(--text-color);
-}
-
-.nav-sidebar {
-  width: 100px;
-  background-color: var(--widget-background);
-  border-right: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  padding: 10px 0;
-}
-
-.nav-sidebar button {
-  height: 80px;
-  margin: 5px;
-  border-width: 1px;
-  border-style: solid;
-  border-color: transparent;
-  border-left-width: 3px;
-  transition: all 0.3s ease;
-}
-
-.nav-sidebar button:hover {
-  border-bottom-color: var(--highlight-hover);
-  color: #FFFFFF;
-}
-
-.nav-sidebar button.nav-active {
-  border-left-color: var(--highlight-color);
-  background-color: rgba(4, 185, 127, 0.1);
-  color: var(--highlight-color);
-}
-
-.content-area {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-}
-</style>
