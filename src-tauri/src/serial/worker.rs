@@ -118,11 +118,11 @@ impl SerialWorker {
             SerialRequest::SetBrightness(brightness) => {
                 self.set_brightness(brightness);
             }
-            SerialRequest::RestartDevice => {
-                self.restart_device();
+            SerialRequest::RestartDevice(tool_path) => {
+                self.restart_device(tool_path);
             }
-            SerialRequest::FlashFirmware { device_type, firmware_type, firmware_path } => {
-                self.flash_firmware(device_type, firmware_type, firmware_path);
+            SerialRequest::FlashFirmware {tool_path, device_type, firmware_type, firmware_path } => {
+                self.flash_firmware(tool_path, device_type, firmware_type, firmware_path);
             }
             SerialRequest::Shutdown => {
                 println!("Received shutdown request");
@@ -342,7 +342,7 @@ impl SerialWorker {
     }
 
     // Restart the ESP32 device
-    fn restart_device(&mut self) {
+    fn restart_device(&mut self, tool_path: String) {
         // First, disconnect the port to release resources
         self.disconnect_port();
         
@@ -378,6 +378,10 @@ impl SerialWorker {
             }).ok();
             
             // Build and execute the restart command
+
+            
+
+
             // This would use esptool in the real implementation
             thread_event_tx.send(SerialEvent::RestartProgress {
                 progress: 50.0,
@@ -397,7 +401,7 @@ impl SerialWorker {
     }
 
     // Flash firmware to the ESP32 device
-    fn flash_firmware(&mut self, device_type: String, firmware_type: String, firmware_path: Option<String>) {
+    fn flash_firmware(&mut self, tool_path: String, device_type: String, firmware_type: String, firmware_path: String) {
         // First, disconnect the port to release resources
         self.disconnect_port();
         
@@ -431,11 +435,6 @@ impl SerialWorker {
                 progress: 20.0,
                 message: format!("Found ESP32 device at {}, preparing firmware...", port),
             }).ok();
-            
-            // Determine firmware path based on type
-            let firmware_path = firmware_path.unwrap_or_else(|| {
-                format!("assets/{}_firmware.bin", device_type)
-            });
             
             thread_event_tx.send(SerialEvent::FlashProgress {
                 progress: 30.0,

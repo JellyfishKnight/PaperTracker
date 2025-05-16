@@ -106,8 +106,8 @@ impl SerialClient {
     }
     
     // Restart the device
-    pub fn restart_device(&self) -> Result<(), String> {
-        self.request_tx.send(SerialRequest::RestartDevice)
+    pub fn restart_device(&self, tool_path: String) -> Result<(), String> {
+        self.request_tx.send(SerialRequest::RestartDevice(tool_path))
             .map_err(|e| format!("Failed to send restart request: {}", e))?;
         
         // For restart, we don't wait for completion as it's asynchronous
@@ -115,8 +115,9 @@ impl SerialClient {
     }
     
     // Flash firmware
-    pub fn flash_firmware(&self, device_type: String, firmware_type: String, firmware_path: Option<String>) -> Result<(), String> {
+    pub fn flash_firmware(&self, tool_path: String, device_type: String, firmware_type: String, firmware_path: String) -> Result<(), String> {
         self.request_tx.send(SerialRequest::FlashFirmware {
+            tool_path,
             device_type,
             firmware_type,
             firmware_path,

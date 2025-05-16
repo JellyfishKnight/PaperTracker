@@ -20,12 +20,13 @@ pub enum SerialRequest {
     // Set the brightness level
     SetBrightness(u32),
     // Restart the ESP32 device
-    RestartDevice,
+    RestartDevice(String),
     // Flash firmware to the ESP32 device
     FlashFirmware {
+        tool_path: String,
         device_type: String,
         firmware_type: String,
-        firmware_path: Option<String>,
+        firmware_path: String,
     },
     // Shutdown the worker thread
     Shutdown,

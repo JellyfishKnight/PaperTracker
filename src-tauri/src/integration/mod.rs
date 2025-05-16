@@ -20,28 +20,32 @@ pub struct VideoState {
 }
 
 // Initialize services and start automatic reconnection without blocking
-pub fn init_services() -> (Arc<Mutex<SerialClient>>, Arc<Mutex<VideoStreamManager>>) {
+pub fn init_services() -> (SerialState, VideoState) {
     // Create clients
-    let serial_client = Arc::new(Mutex::new(SerialClient::new()));
-    let video_manager = Arc::new(Mutex::new(VideoStreamManager::new()));
+    let serial_state = SerialState {
+        client: Arc::new(Mutex::new(SerialClient::new())),
+    };
+    let video_state = VideoState {
+        manager: Arc::new(Mutex::new(VideoStreamManager::new())),
+    };
 
     let mut reconnect_manager: ReconnectManager;
     // Get video clients for each device type (non-blocking)
     {
-        let manager = video_manager.lock().unwrap();
+        let manager = video_state.manager.lock().unwrap();
         let left_eye_client = manager.get_client(DeviceType::LeftEye);
         let right_eye_client = manager.get_client(DeviceType::RightEye);
         let face_client = manager.get_client(DeviceType::Face);
 
         serial_messages::listen_for_serial_events(
-            serial_client.lock().unwrap().get_message_receiver(), 
+            serial_state.client.lock().unwrap().get_message_receiver(), 
             face_client.get_request_sender(),
             left_eye_client.get_request_sender(),
             right_eye_client.get_request_sender());
 
         // Create and start reconnect manager (connections happen in background threads)
         reconnect_manager = ReconnectManager::new(
-            serial_client.clone(),
+            serial_state.client.clone(),
             left_eye_client,
             right_eye_client,
             face_client
@@ -58,5 +62,5 @@ pub fn init_services() -> (Arc<Mutex<SerialClient>>, Arc<Mutex<VideoStreamManage
     println!("服务初始化完成，在后台监控连接状态");
     
     // Return the state for use in the application
-    (serial_client, video_manager)
+    (serial_state, video_state)
 }
