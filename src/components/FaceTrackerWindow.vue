@@ -218,7 +218,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, onActivated } from 'vue';
 import deviceService from '../functional/deviceService';
 import messageService from '../functional/pop_window/messageService';
 import { Channel, invoke } from '@tauri-apps/api/core';
@@ -264,10 +264,6 @@ const calibration = reactive({
   tongueDown: 24,
   tongueLeft: 24,
   tongueRight: 24
-});
-
-onMounted(() => {
-
 });
 
 

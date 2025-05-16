@@ -51,7 +51,6 @@
   const serverStatus = ref('无法连接到服务器，请检查网络');
   const currentVersion = ref('获取本地版本失败');
   const updateLog = ref('无法连接到服务器，请检查网络');
-  const hasCheckedUpdate = ref(false);
 
   function checkForUpdates() {
     // 执行更新检查逻辑
@@ -65,19 +64,16 @@
       currentVersion.value = result.local_version;
       updateLog.value = result.release_notes;
     }).catch((error) => {
-      messageService.error("检查更新失败，请稍后再试。");
-      serverStatus.value = '无法连接到服务器，请检查网络';
+      messageService.error("检查更新失败，请稍后再试: " + error);
+      serverStatus.value = error;
+      currentVersion.value = error;
+      updateLog.value = error;
     });
-    
-    // 在函数完成后，不论成功或失败，都设置标志位为true
-    hasCheckedUpdate.value = true;
   }
 
   onMounted(() => {
     // 只有在第一次挂载且未检查过更新时才执行检查
-    if (!hasCheckedUpdate.value) {
-      checkForUpdates();
-    }
+    checkForUpdates();
   });
   
   function openFaceTrackerInstructions() {

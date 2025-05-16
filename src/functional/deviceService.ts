@@ -202,7 +202,7 @@ const deviceService = {
           autoProgress: (current: number) => {
             if (current < 95) {
               // 模拟刷写进度
-              return current + 0.1;
+              return current + 0.2;
             }
             return current;
           },

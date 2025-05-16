@@ -35,8 +35,10 @@ pub fn start_face_stream<R: Runtime>(
     app: AppHandle<R>,
     channel: Channel<Vec<u8>>,
 ) -> Result<(), String> {
+    println!("--------------Starting face stream-------------");
     let image_state = app.state::<ImageStreamState>();
     let video_state = app.state::<VideoState>();
+
     // Check if already streaming
     {
         let mut active = image_state.face_stream_active.lock()
