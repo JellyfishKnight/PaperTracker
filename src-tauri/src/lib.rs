@@ -5,11 +5,13 @@ mod serial;
 mod websocket;
 mod integration;
 
-use paper_tracker_config::config::init_config;
+use opencv::{core::MatTraitConst, highgui};
+use paper_tracker_config::config::{init_config, FACE_CONFIG, EYE_CONFIG};
 use tauri::Manager;
 use updater::version_check::check_for_updates;
 use ftlog::*;
 use serial::esp32_serial;
+use utils::consts::DEVICE_TYPE_FACE;
 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -30,8 +32,14 @@ pub fn run() {
             // create config 
             init_config(app.handle())?;
             let mut serial = serial::esp32_serial::Esp32Serial::new();
+            let mut face_image_msg_rx = serial.get_message_rx();
+            let mut face_image_stream = websocket::image_stream::ImageStream::new(
+                face_image_msg_rx, 
+                FACE_CONFIG.functional.wifi_ip.clone(), 
+                DEVICE_TYPE_FACE);
+            let face_image_stream_request_tx = face_image_stream.get_request_tx();
+            let mut face_image_stream_response_rx = face_image_stream.get_response_rx();
             // let mut global_msg_rx = serial.get_message_rx();
-            let mut image_msg_rx = serial.get_message_rx();
 
 
 
@@ -39,6 +47,19 @@ pub fn run() {
             let mut global_resp_rx = serial.get_response_rx();
             std::thread::spawn(move || {
                 serial.start();
+            });
+            std::thread::spawn(move || {
+                face_image_stream.start();
+            });
+            std::thread::spawn(move || {
+                loop {
+                    face_image_stream_request_tx.send(websocket::image_msg::ImageRequest::GetImageOpenCV);
+                    if let Ok(websocket::image_msg::ImageResponse::OpenCVImageData(data)) = face_image_stream_response_rx.try_recv() {
+                        highgui::imshow("test", &data);
+                        highgui::wait_key(1);
+                        info!("Received image data :{} {}", data.cols(), data.rows());
+                    }
+                }
             });
             // app.manage(global_msg_rx);
             // app.manage(global_req_tx);

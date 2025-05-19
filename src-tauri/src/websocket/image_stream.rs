@@ -1,5 +1,4 @@
-use std::{collections::VecDeque, os::unix::net::SocketAddr, time::Instant};
-
+use std::{collections::VecDeque, sync::mpsc::TryRecvError, time::Instant};
 use crossbeam::channel::{Sender, Receiver};
 use opencv::{core::{Mat, MatTraitConst}, imgcodecs};
 use crate::{serial::serial_msg::SerialMessage, utils::consts::{DEVICE_TYPE_FACE, DEVICE_TYPE_LEFT_EYE, DEVICE_TYPE_RIGHT_EYE}};
@@ -13,7 +12,7 @@ pub struct ImageStream {
     request_rx: Receiver<ImageRequest>,
     request_tx: Sender<ImageRequest>,
     response_tx: bus::Bus<ImageResponse>,
-    serial_msg_rx: Receiver<SerialMessage>,
+    serial_msg_rx: bus::BusReader<SerialMessage>,
 
     device_type: i32,
     port_state: PortState,
@@ -24,7 +23,7 @@ pub struct ImageStream {
 }
 
 impl ImageStream {
-    pub fn new(serial_msg_rx: Receiver<SerialMessage>, ip: String, device_type: i32) -> Self {
+    pub fn new(serial_msg_rx: bus::BusReader<SerialMessage>, ip: String, device_type: i32) -> Self {
         let (request_tx, request_rx) = crossbeam::channel::unbounded();
         let response_tx = bus::Bus::<ImageResponse>::new(1000);
 
@@ -68,7 +67,7 @@ impl ImageStream {
                 Ok(msg) => {
                     self.handle_serial_message(msg);
                 }
-                Err(crossbeam::channel::TryRecvError::Disconnected) => {
+                Err(TryRecvError::Disconnected) => {
                     // Handle error in receiving serial messages
                     error!("disconnected serial message in image stream");
                 }
@@ -199,8 +198,14 @@ impl ImageStream {
             match Url::parse(url_to_try) {
                 Ok(url) => {
                     match connect(url) {
-                        Ok((ws, _)) => {
+                        Ok((mut ws, _)) => {
                             info!("Stream {} Connected to: {}", self.device_type, url_to_try);
+
+                            if let tungstenite::stream::MaybeTlsStream::Plain(stream) = ws.get_mut() {
+                                if let Err(e) = stream.set_read_timeout(Some(std::time::Duration::from_secs(2))) {
+                                    warn!("Stream {} Failed to set read timeout: {}", self.device_type, e);
+                                }
+                            }
                             *port = Some(ws);
                             return true;
                         }

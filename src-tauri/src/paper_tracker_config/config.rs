@@ -162,7 +162,7 @@ impl FaceConfig {
     }
 
     pub fn write() -> Result<()> {
-        let toml_string = toml::to_string(&*FACE_CONIG).unwrap();
+        let toml_string = toml::to_string(&*FACE_CONFIG).unwrap();
         // 检查文件是否已经存在
         if std::path::Path::new(FACE_CONFIG_PATH.get().unwrap()).exists() {
             // 如果存在，先删除
@@ -188,7 +188,7 @@ pub static FACE_CONFIG_PATH: OnceCell<String> = OnceCell::new();
 
 pub static EYE_CONFIG: Lazy<EyeConfig> = Lazy::new(|| EyeConfig::new_args().unwrap());
 
-pub static FACE_CONIG: Lazy<FaceConfig> = Lazy::new(|| FaceConfig::new_args().unwrap());
+pub static FACE_CONFIG: Lazy<FaceConfig> = Lazy::new(|| FaceConfig::new_args().unwrap());
 
 pub fn write_eye_config() -> Result<()> {
     EyeConfig::write()
