@@ -6,6 +6,7 @@ use config;
 use toml;
 use once_cell::sync::{Lazy, OnceCell};
 use anyhow::{Ok, Result};
+use ftlog::*;
 
 /*************************************************************/
 /***************************眼追参数****************************/
@@ -212,11 +213,11 @@ pub fn init_config<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
     let eye_path = app.path().resolve("assets/eye_config.toml", tauri::path::BaseDirectory::Resource);
     let face_path = app.path().resolve("assets/face_config.toml ", tauri::path::BaseDirectory::Resource);
     if eye_path.is_err() || face_path.is_err() {
-        println!("无法解析配置文件资源路径");
+        error!("无法解析配置文件资源路径");
         return Err(anyhow::anyhow!("无法解析配置文件资源路径"));
     }
-    println!("眼追配置文件路径: {:?}", eye_path);
-    println!("面捕配置文件路径: {:?}", face_path);
+    debug!("眼追配置文件路径: {:?}", eye_path);
+    debug!("面捕配置文件路径: {:?}", face_path);
     init_config_path(
         eye_path.unwrap().to_str().unwrap().to_string(),
         face_path.unwrap().to_str().unwrap().to_string(),
