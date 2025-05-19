@@ -72,53 +72,7 @@ impl Esp32Serial {
             // Check for incoming requests
             match self.request_rx.try_recv() {
                 Ok(request) => {
-                    match request {
-                        SerialRequest::Restart(path) => {
-                            // Handle restart request
-                            self.port_state = PortState::Disconnected;
-                            let result = restart_esp32(path, self.serial_info.0.clone());
-                            match result {
-                                Ok(_) => {
-                                    self.response_tx.broadcast(SerialResponse::Restart("Restarted successfully".to_string()));
-                                }
-                                Err(e) => {
-                                    error!("Failed to restart ESP32: {}", e);
-                                    self.response_tx.broadcast(SerialResponse::Restart("Failed to restart".to_string()));
-                                }
-                            }
-                            self.run = false;
-                        }
-                        SerialRequest::Flash(command) => {
-                            self.port_state = PortState::Disconnected;
-                            // Handle flash request
-                            let result = flash_esp32(
-                                command.tool_path, 
-                                command.boot_loader_path, 
-                                command.partition_path,
-                                command.firmware_path,
-                                self.serial_info.0.clone()
-                            );
-                            match result {
-                                Ok(_) => {
-                                    self.response_tx.broadcast(SerialResponse::Flash(("Flashed successfully".to_string(), 100)));
-                                }
-                                Err(e) => {
-                                    error!("Failed to flash ESP32: {}", e);
-                                    self.response_tx.broadcast(SerialResponse::Flash(("Failed to flash".to_string(), 0)));
-                                }
-                            }
-                            self.run = false;
-                        }
-                        SerialRequest::GetStatus => {
-                            self.response_tx.broadcast(SerialResponse::Status((self.port_state.clone(), self.serial_info.1)));
-                        }
-                        SerialRequest::Stop => {
-                            self.run = false;
-                        }
-                        SerialRequest::Start => {
-                            self.run = true;
-                        }
-                    }
+                    self.handle_request(request);
                 }
                 Err(crossbeam::channel::TryRecvError::Disconnected) => {
                     // Handle error in receiving requests
@@ -126,65 +80,31 @@ impl Esp32Serial {
                 }
                 _ => ()
             }
+            // Check if the port is disconnected
             if let PortState::Disconnected = self.port_state {
                 if self.run {
-                    if let Some(port_name) = find_esp32_port() {
-                        self.serial_info.0 = port_name;
-                        info!("ESP32 device found at port: {}", self.serial_info.0);
+                    if self.connect(&mut port) {
+                        info!("Connected to ESP32 device");
+                        self.port_state = PortState::Connected;
                     } else {
-                        info!("No ESP32 device found");
-                        continue;
+                        error!("Failed to connect to ESP32 device");
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;        
                     }
-                    // Open the serial port
-                    port = match serialport::new(&self.serial_info.0, 115200)
-                        .timeout(std::time::Duration::from_secs(10))
-                        .open() {
-                            Ok(port) => {
-                                info!("Serial port opened successfully");
-                                self.port_state = PortState::Connected;
-                                Some(port)
-                            }
-                            Err(e) => {
-                                error!("Failed to open serial port: {}", e);
-                                continue;
-                            }
-                    };
+                } else {
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    continue;
                 }
-                continue;
             }
             if !self.run {
+                std::thread::sleep(std::time::Duration::from_secs(1));
                 continue;
             }
             // check for write requests
             match self.write_rx.try_recv() {
                 Ok(message) => {
                     // Handle write request
-                    match message {
-                        SerialSendPacket::Brightness(brightness) => {
-                            let packet = format!("A6{}B6", brightness);
-                            if let Some(ref mut serial_port) = port {
-                                if let Err(e) = serial_port.write(packet.as_bytes()) {
-                                    self.port_state = PortState::Disconnected;
-                                    error!("Error writing to serial port: {}", e);
-                                }
-                            } else {
-                                self.port_state = PortState::Disconnected;
-                                error!("Port is not available for writing");
-                            }
-                        }
-                        SerialSendPacket::WifiConfig(config) => {
-                            let packet = format!("A2SSID{}PWD{}B2", config.ssid, config.password);
-                            if let Some(ref mut port) = port {
-                                if let Err(e) = port.write(packet.as_bytes()) {
-                                    self.port_state = PortState::Disconnected;
-                                    error!("Error writing to serial port: {}", e);
-                                }
-                            } else {
-                                self.port_state = PortState::Disconnected;
-                                error!("Port is not available for writing");
-                            }
-                        }
-                    }
+                    self.handle_write_message(message, &mut port);
                 }
                 Err(crossbeam::channel::TryRecvError::Disconnected) => {
                     // Handle error in receiving requests
@@ -197,7 +117,6 @@ impl Esp32Serial {
             if let Some(ref mut port) = port {
                 match port.read(&mut buffer) {
                     Ok(bytes_read) => {
-                        info!("Reading from serial port");
                         if bytes_read > 0 {
                             // Process the received data
                             let data = &buffer[..bytes_read];
@@ -214,13 +133,115 @@ impl Esp32Serial {
         }
     }
 
+    fn connect(&mut self, port: &mut Option<Box<dyn SerialPort + 'static>>) -> bool {
+        if let Some(port_name) = find_esp32_port() {
+            self.serial_info.0 = port_name;
+            info!("ESP32 device found at port: {}", self.serial_info.0);
+        } else {
+            info!("No ESP32 device found");
+        }
+        // Open the serial port
+        *port = match serialport::new(&self.serial_info.0, 115200)
+            .timeout(std::time::Duration::from_secs(10))
+            .open() {
+                Ok(port) => {
+                    info!("Serial port opened successfully");
+                    Some(port)
+                }
+                Err(e) => {
+                    error!("Failed to open serial port: {}", e);
+                    None
+                }
+            };
+        port.is_some()
+    }
+
+    fn handle_write_message(&mut self, message: SerialSendPacket, port: &mut Option<Box<dyn SerialPort + 'static>>) {
+        match message {
+            SerialSendPacket::Brightness(brightness) => {
+                let packet = format!("A6{}B6", brightness);
+                if let Some(ref mut port) = port {
+                    if let Err(e) = port.write(packet.as_bytes()) {
+                        self.port_state = PortState::Disconnected;
+                        error!("Error writing to serial port: {}", e);
+                    }
+                } else {
+                    self.port_state = PortState::Disconnected;
+                    error!("Port is not available for writing");
+                }
+            }
+            SerialSendPacket::WifiConfig(config) => {
+                let packet = format!("A2SSID{}PWD{}B2", config.ssid, config.password);
+                if let Some(ref mut port) = port {
+                    if let Err(e) = port.write(packet.as_bytes()) {
+                        self.port_state = PortState::Disconnected;
+                        error!("Error writing to serial port: {}", e);
+                    }
+                } else {
+                    self.port_state = PortState::Disconnected;
+                    error!("Port is not available for writing");
+                }
+            }
+        }
+    }
+
+    fn handle_request(&mut self, req: SerialRequest) {
+        match req {
+            SerialRequest::Restart(path) => {
+                // Handle restart request
+                self.port_state = PortState::Disconnected;
+                let result = restart_esp32(path, self.serial_info.0.clone());
+                match result {
+                    Ok(_) => {
+                        self.response_tx.broadcast(SerialResponse::Restart("Restarted successfully".to_string()));
+                    }
+                    Err(e) => {
+                        error!("Failed to restart ESP32: {}", e);
+                        self.response_tx.broadcast(SerialResponse::Restart("Failed to restart".to_string()));
+                    }
+                }
+                self.run = false;
+            }
+            SerialRequest::Flash(command) => {
+                self.port_state = PortState::Disconnected;
+                // Handle flash request
+                let result = flash_esp32(
+                    command.tool_path, 
+                    command.boot_loader_path, 
+                    command.partition_path,
+                    command.firmware_path,
+                    self.serial_info.0.clone()
+                );
+                match result {
+                    Ok(_) => {
+                        self.response_tx.broadcast(SerialResponse::Flash(("Flashed successfully".to_string(), 100)));
+                    }
+                    Err(e) => {
+                        error!("Failed to flash ESP32: {}", e);
+                        self.response_tx.broadcast(SerialResponse::Flash(("Failed to flash".to_string(), 0)));
+                    }
+                }
+                self.run = false;
+            }
+            SerialRequest::GetStatus => {
+                self.response_tx.broadcast(SerialResponse::Status((self.port_state.clone(), self.serial_info.1)));
+            }
+            SerialRequest::Stop => {
+                self.run = false;
+            }
+            SerialRequest::Start => {
+                self.run = true;
+            }
+        }
+    }
+
     fn process_serial_data(&mut self, data: String) {
         // Find and process packets in the data
         let mut remaining = data;
         while let Some(start) = remaining.find('A') {
             // if the char after 'A' is not a digit, skip this packet
             if remaining[start + 1..].chars().next().unwrap_or(' ') < '0' || remaining[start + 1..].chars().next().unwrap_or(' ') > '9' {
-                println!("{}", remaining);
+                info!("{}", remaining);
                 return ;
             }
             // Trim data before start marker

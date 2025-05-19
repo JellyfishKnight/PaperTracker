@@ -30,28 +30,20 @@ pub fn run() {
             // create config 
             init_config(app.handle())?;
             let mut serial = serial::esp32_serial::Esp32Serial::new();
-            let mut msg_rx = serial.get_message_rx();
-            let req_tx = serial.get_request_tx();
-            let mut resp_rx = serial.get_response_rx();
+            // let mut global_msg_rx = serial.get_message_rx();
+            let mut image_msg_rx = serial.get_message_rx();
+
+
+
+            let mut global_req_tx = serial.get_request_tx();
+            let mut global_resp_rx = serial.get_response_rx();
             std::thread::spawn(move || {
                 serial.start();
             });
-        
-            std::thread::spawn(move || {
-                loop {
-                    println!("Waiting for messages...");
-                    if let Ok(msg) = msg_rx.recv() {
-                        println!("Received message: {:?}", msg);
-                    }
-                    if let Ok(req) = req_tx.send(serial::serial_msg::SerialRequest::GetStatus) {
-                        // println!("Sendf request: {:?}", req);
-                    }
-                    if let Ok(resp) = resp_rx.recv() {
-                        println!("Received response: {:?}", resp);
-                    }
-                }
-            });
-        
+            // app.manage(global_msg_rx);
+            // app.manage(global_req_tx);
+            // app.manage(global_resp_rx);
+            
             info!("Application initialized successfully");
             Ok(())
         })

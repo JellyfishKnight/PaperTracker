@@ -1,4 +1,5 @@
 use tauri::{AppHandle, Manager, Runtime};
+use ftlog::*;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct UpdateInfo {
@@ -28,19 +29,19 @@ pub fn check_for_updates<R: Runtime>(app: AppHandle<R>) -> Result<UpdateInfo, St
     let local_version = match get_local_version("assets/version.json", app) {
         Some(content) => content,
         None => {
-            println!("读取本地配置文件失败");
+            error!("读取本地配置文件失败");
             return Err("读取本地配置文件失败".to_string());
         }
     };
-    println!("本地版本: {}", local_version.value.version);
+    info!("本地版本: {}", local_version.value.version);
     let remote_version = match get_remote_version("http://47.116.163.1/version.json") {
         Some(content) => content,
         None => {
-            println!("读取远程配置文件失败");
+            error!("读取远程配置文件失败");
             return Err("读取远程配置文件失败".to_string());
         }
     };    
-    println!("远程版本: {}", remote_version.value.version);
+    info!("远程版本: {}", remote_version.value.version);
     Ok(UpdateInfo {
         remote_version: remote_version.value.version,
         local_version: local_version.value.version,
@@ -54,7 +55,7 @@ pub fn get_local_version<R: Runtime>(version_path: &str, app: AppHandle<R>) -> O
             path
         },
         Err(_) => {
-            println!("无法解析资源路径");
+            error!("无法解析资源路径");
             return None;
         }
     };
@@ -64,12 +65,12 @@ pub fn get_local_version<R: Runtime>(version_path: &str, app: AppHandle<R>) -> O
                 Some(version_info)
             }
             Err(e) => {
-                println!("解析本地版本文件失败: {}", e);
+                error!("解析本地版本文件失败: {}", e);
                 None
             }
         }
     } else {
-        println!("没有找到版本文件");
+        error!("没有找到版本文件");
         None
     }
 }
@@ -79,12 +80,12 @@ pub fn get_remote_version(url: &str) -> Option<VersionInfo> {
         Ok(res) => match res.json::<VersionInfo>() {
             Ok(version_info) => Some(version_info),
             Err(e) => {
-                println!("解析远程版本文件失败: {}", e);
+                error!("解析远程版本文件失败: {}", e);
                 None
             }
         },
         Err(e) => {
-            println!("请求远程版本文件失败: {}", e);
+            error!("请求远程版本文件失败: {}", e);
             None
         }
     }
