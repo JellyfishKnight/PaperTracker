@@ -31,7 +31,7 @@ pub enum SerialRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SerialResponse {
     // restart result
-    Restart(String),
+    Restart(bool, String),
     // flash result, progress
     Flash((
         String,

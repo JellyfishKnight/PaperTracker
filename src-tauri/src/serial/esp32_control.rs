@@ -1,18 +1,23 @@
 use std::{os::unix::process::CommandExt, process::Command};
+use ftlog::*;
 
 pub fn restart_esp32(tool_path: String, port: String) -> std::io::Result<()> {
     let mut binding = std::process::Command::new(tool_path);
     let command = binding
-        .args(["--port", port.as_str()])
+        .arg("--port")
+        .arg(port.as_str())
         .arg("run");
-
+    info!("Restarting ESP32 with command: {:?}", command);
     let output = command.output()?;
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        println!("Output: {}", stdout);
+        info!("Output: {}", stdout);
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        eprintln!("Error: {}", stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Error: {}", stdout),
+        ));
     } 
     std::io::Result::Ok(())
 }
@@ -31,10 +36,10 @@ pub fn flash_esp32(tool_path: String, boot_loader_path: String, partition_path: 
     let output = command.output()?;
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        println!("Output: {}", stdout);
+        info!("Output: {}", stdout);
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        eprintln!("Error: {}", stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        error!("Error: {}", stdout);
     }
     std::io::Result::Ok(())
 }

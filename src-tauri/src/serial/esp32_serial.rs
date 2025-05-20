@@ -72,7 +72,7 @@ impl Esp32Serial {
             // Check for incoming requests
             match self.request_rx.try_recv() {
                 Ok(request) => {
-                    self.handle_request(request);
+                    self.handle_request(request, &mut port);
                 }
                 Err(crossbeam::channel::TryRecvError::Disconnected) => {
                     // Handle error in receiving requests
@@ -185,22 +185,22 @@ impl Esp32Serial {
         }
     }
 
-    fn handle_request(&mut self, req: SerialRequest) {
+    fn handle_request(&mut self, req: SerialRequest, port: &mut Option<Box<dyn SerialPort + 'static>>) {
         match req {
             SerialRequest::Restart(path) => {
                 // Handle restart request
                 self.port_state = PortState::Disconnected;
+                *port = None;
                 let result = restart_esp32(path, self.serial_info.0.clone());
                 match result {
                     Ok(_) => {
-                        self.response_tx.broadcast(SerialResponse::Restart("Restarted successfully".to_string()));
+                        self.response_tx.broadcast(SerialResponse::Restart(true, "Restarted successfully".to_string()));
                     }
                     Err(e) => {
                         error!("Failed to restart ESP32: {}", e);
-                        self.response_tx.broadcast(SerialResponse::Restart("Failed to restart".to_string()));
+                        self.response_tx.broadcast(SerialResponse::Restart(false, e.to_string()));
                     }
                 }
-                self.run = false;
             }
             SerialRequest::Flash(command) => {
                 self.port_state = PortState::Disconnected;
@@ -221,7 +221,6 @@ impl Esp32Serial {
                         self.response_tx.broadcast(SerialResponse::Flash(("Failed to flash".to_string(), 0)));
                     }
                 }
-                self.run = false;
             }
             SerialRequest::GetStatus => {
                 self.response_tx.broadcast(SerialResponse::Status((self.port_state.clone(), self.serial_info.1)));
