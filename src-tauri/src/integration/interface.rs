@@ -1,18 +1,18 @@
-use tauri::{Manager, Runtime, AppHandle};
+use tauri::{Manager, Runtime, AppHandle, ipc::Channel};
 use crossbeam::channel::{Sender, Receiver};
 use std::sync::Mutex;
-use crate::serial::serial_msg::{FlashCommand, SerialRequest, SerialResponse, SerialSendPacket, WifiConfig};
+use crate::{serial::serial_msg::{FlashCommand, SerialRequest, SerialResponse, SerialSendPacket, WifiConfig}, websocket::image_msg::{ImageRequest, ImageResponse}};
 use ftlog::*;
+
+use super::init::ImageStreamState;
 
 
 #[tauri::command]
 pub async fn restart_esp32<R: Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
-    info!("-------------------------------Rstarting ESP32-------------------------------");
     let request_tx = app.state::<Sender<SerialRequest>>().clone();
 
     let state = app.state::<Mutex<bus::BusReader<SerialResponse>>>();
     let mut response_rx = state.lock().unwrap();
-    info!("-------------------------------Getting Status-------------------------------");
     if let Err(e) = request_tx.send(SerialRequest::GetStatus) {
         return Err(format!("Failed to send get status request to ESP32: {}", e));
     }
@@ -34,7 +34,6 @@ pub async fn restart_esp32<R: Runtime>(app: tauri::AppHandle<R>) -> Result<(), S
             }
         }
     }
-    info!("-------------------------------Getting Tools-------------------------------");
     match app.path().resolve("assets/esptool", tauri::path::BaseDirectory::Resource) {
         Ok(tool_path) => {
             let tool_path = tool_path.to_str().unwrap().to_string();
@@ -46,7 +45,6 @@ pub async fn restart_esp32<R: Runtime>(app: tauri::AppHandle<R>) -> Result<(), S
             return Err(format!("Failed to resolve tool path: {}", e));
         }
     }
-    info!("-------------------------------Waiting for Results-------------------------------");
     loop {
         match response_rx.recv() {
             Ok(SerialResponse::Restart(status, msg)) => {
@@ -63,7 +61,6 @@ pub async fn restart_esp32<R: Runtime>(app: tauri::AppHandle<R>) -> Result<(), S
             }
         }
     }
-    info!("-------------------------------Finished-------------------------------");
     Ok(())
 }
 
@@ -112,4 +109,90 @@ pub async fn write_wifi_info<R: Runtime>(app: tauri::AppHandle<R>, ssid: String,
         return Err(format!("Failed to send wifi config request to ESP32: {}", e));
     }
     Ok(())
+}
+
+
+#[tauri::command]
+pub async fn start_face_image_stream<R: Runtime>(app: tauri::AppHandle<R>, channel: Channel<Vec<u8>>) {
+    info!("-------------------------------Starting Face Image Stream-------------------------------");
+    let state = app.state::<ImageStreamState>();
+    let face_stream_req = state.face_stream_req.clone();
+    let face_stream_resp = state.face_stream_resp.clone();
+    std::thread::spawn(move || {
+        let mut face_stream_resp = face_stream_resp.lock().unwrap();
+        loop {
+            if let Err(e) = face_stream_req.send(ImageRequest::GetImageBase64) {
+                error!("Failed to send face image request: {}", e);
+                continue;
+            }
+            match face_stream_resp.recv() {
+                Ok(response) => {
+                    if let ImageResponse::Base64ImageData(data) = response {
+                        if let Err(e) = channel.send(data) {
+                            error!("Failed to send face image data to channel: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to receive face image response: {}", e);
+                }
+            }
+        }
+    });
+}
+
+#[tauri::command]
+pub async fn start_left_eye_image_stream<R: Runtime>(app: tauri::AppHandle<R>, channel: Channel<Vec<u8>>) {
+    let state = app.state::<ImageStreamState>();
+    let left_eye_stream_req = state.left_eye_stream_req.clone();
+    let left_eye_stream_resp = state.left_eye_stream_resp.clone();
+    std::thread::spawn(move || {
+        let mut left_eye_stream_resp = left_eye_stream_resp.lock().unwrap();
+        loop {
+            if let Err(e) = left_eye_stream_req.send(ImageRequest::GetImageBase64) {
+                error!("Failed to send left eye image request: {}", e);
+                continue;
+            }
+            match left_eye_stream_resp.recv() {
+                Ok(response) => {
+                    if let ImageResponse::Base64ImageData(data) = response {
+                        if let Err(e) = channel.send(data) {
+                            error!("Failed to send left eye image data to channel: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to receive left eye image response: {}", e);
+                }
+            }
+        }
+    });
+}
+
+#[tauri::command]
+pub async fn start_right_eye_image_stream<R: Runtime>(app: tauri::AppHandle<R>, channel: Channel<Vec<u8>>) {
+    let state = app.state::<ImageStreamState>();
+    let right_eye_stream_req = state.right_eye_stream_req.clone();
+    let right_eye_stream_resp = state.right_eye_stream_resp.clone();
+    std::thread::spawn(move || {
+        let mut right_eye_stream_resp = right_eye_stream_resp.lock().unwrap();
+        loop {
+            if let Err(e) = right_eye_stream_req.send(ImageRequest::GetImageBase64) {
+                error!("Failed to send right eye image request: {}", e);
+                continue;
+            }
+            match right_eye_stream_resp.recv() {
+                Ok(response) => {
+                    if let ImageResponse::Base64ImageData(data) = response {
+                        if let Err(e) = channel.send(data) {
+                            error!("Failed to send right eye image data to channel: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to receive right eye image response: {}", e);
+                }
+            }
+        }
+    });
 }

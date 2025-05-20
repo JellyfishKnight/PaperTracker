@@ -254,12 +254,9 @@ impl ImageStream {
     }
 
     fn get_image_base64(&mut self) {
-        // Implement the logic to get image in base64 format
-        // This is a placeholder implementation
-        let image_data = vec![0; 1024]; // Replace with actual image data
-        self.response_tx.broadcast(ImageResponse::Base64ImageData(image_data));
+        
     }
-
+    
     fn get_image_opencv(&mut self) {
         // Implement the logic to get image in OpenCV format
         // This is a placeholder implementation

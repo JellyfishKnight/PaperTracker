@@ -333,12 +333,10 @@ function showSerialLog(): void {
 onMounted(() => {
   const channel = new Channel<Uint8Array>();
   channel.onmessage = (message) => {
-    
+    const data = new TextDecoder().decode(message);
+    logContent.value += data + '\n';
   };
-  invoke('start_face_stream', { channel }).then(() => {})
-    .catch((error) => {
-      messageService.error("启动相机流失败: " + error);
-    });
+  invoke('start_face_stream', { channel })
 });
 
 </script>
