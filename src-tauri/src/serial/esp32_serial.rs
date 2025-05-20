@@ -164,6 +164,8 @@ impl Esp32Serial {
                     if let Err(e) = port.write(packet.as_bytes()) {
                         self.port_state = PortState::Disconnected;
                         error!("Error writing to serial port: {}", e);
+                    } else {
+                        info!("Sent brightness packet: {}", packet);
                     }
                 } else {
                     self.port_state = PortState::Disconnected;
@@ -176,6 +178,8 @@ impl Esp32Serial {
                     if let Err(e) = port.write(packet.as_bytes()) {
                         self.port_state = PortState::Disconnected;
                         error!("Error writing to serial port: {}", e);
+                    } else {
+                        info!("Sent WiFi config packet: {}", packet);       
                     }
                 } else {
                     self.port_state = PortState::Disconnected;

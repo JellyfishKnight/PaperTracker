@@ -1,7 +1,7 @@
 use tauri::{Manager, Runtime, AppHandle};
 use crossbeam::channel::{Sender, Receiver};
 use std::sync::Mutex;
-use crate::serial::serial_msg::{FlashCommand, SerialRequest, SerialResponse};
+use crate::serial::serial_msg::{FlashCommand, SerialRequest, SerialResponse, SerialSendPacket, WifiConfig};
 use ftlog::*;
 
 
@@ -98,6 +98,18 @@ pub async fn flash_esp32<R: Runtime>(app: tauri::AppHandle<R>, device_type: i32)
         firmware_path: firmware_path.unwrap().to_str().unwrap().to_string(),
     })) {
         return Err(format!("Failed to send flash request to ESP32: {}", e));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn write_wifi_info<R: Runtime>(app: tauri::AppHandle<R>, ssid: String, password: String) -> Result<(), String> {
+    let write_tx = app.state::<Sender<SerialSendPacket>>().clone();
+    if let Err(e) = write_tx.send(SerialSendPacket::WifiConfig(WifiConfig {
+        ssid,
+        password,
+    })) {
+        return Err(format!("Failed to send wifi config request to ESP32: {}", e));
     }
     Ok(())
 }

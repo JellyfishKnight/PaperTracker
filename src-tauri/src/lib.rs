@@ -12,9 +12,8 @@ use paper_tracker_config::config::{init_config, FACE_CONFIG, EYE_CONFIG};
 use tauri::Manager;
 use updater::version_check::check_for_updates;
 use ftlog::*;
-use serial::esp32_serial;
 use utils::consts::DEVICE_TYPE_FACE;
-use integration::interface::{restart_esp32, flash_esp32};
+use integration::interface::{restart_esp32, flash_esp32, write_wifi_info};
 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -42,12 +41,11 @@ pub fn run() {
                 DEVICE_TYPE_FACE);
             let face_image_stream_request_tx = face_image_stream.get_request_tx();
             let mut face_image_stream_response_rx = face_image_stream.get_response_rx();
-            let mut global_msg_rx = serial.get_message_rx();
 
-
-
-            let mut global_req_tx = serial.get_request_tx();
+            let global_req_tx = serial.get_request_tx();
+            let global_write_tx = serial.get_write_tx();
             let mut global_resp_rx = serial.get_response_rx();
+            let mut global_msg_rx = serial.get_message_rx();
             std::thread::spawn(move || {
                 serial.start();
             });
@@ -65,6 +63,7 @@ pub fn run() {
             app.manage(Mutex::new(global_msg_rx));
             app.manage(global_req_tx);
             app.manage(Mutex::new(global_resp_rx));
+            app.manage(global_write_tx);
             
             info!("Application initialized successfully");
             Ok(())
@@ -73,6 +72,7 @@ pub fn run() {
             check_for_updates,
             restart_esp32,
             flash_esp32,
+            write_wifi_info
             ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
