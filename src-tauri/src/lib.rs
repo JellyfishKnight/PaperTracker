@@ -14,7 +14,7 @@ use integration::interface::{
     write_wifi_info, 
     start_face_image_stream,
     start_left_eye_image_stream,
-    start_right_eye_image_stream
+    start_right_eye_image_stream,
 };
 use integration::init::init_device;
 
@@ -47,7 +47,7 @@ pub fn run() {
             write_wifi_info,
             start_face_image_stream,
             start_left_eye_image_stream,
-            start_right_eye_image_stream
+            start_right_eye_image_stream,
             ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

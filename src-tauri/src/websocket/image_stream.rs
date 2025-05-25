@@ -1,11 +1,11 @@
 use std::{collections::VecDeque, sync::mpsc::TryRecvError, time::Instant};
 use crossbeam::channel::{Sender, Receiver};
-use opencv::{core::{Mat, MatTraitConst}, imgcodecs};
+use opencv::{core::{Mat, MatTraitConst, Vector}, imgcodecs};
 use crate::{serial::serial_msg::SerialMessage, utils::consts::{DEVICE_TYPE_FACE, DEVICE_TYPE_LEFT_EYE, DEVICE_TYPE_RIGHT_EYE}};
 use super::image_msg::{DeviceStatus, Frame, ImageRequest, ImageResponse, PortState};
 use url::Url;
 use tungstenite::{connect, Message, WebSocket};
-
+use base64::{Engine as _, engine::general_purpose};
 use ftlog::*;
 
 pub struct ImageStream {
@@ -254,7 +254,33 @@ impl ImageStream {
     }
 
     fn get_image_base64(&mut self) {
-        
+        if let Some(frame) = self.image_buffer.front() {
+            // Convert image to base64
+            let mut encoded_data = Vector::<u8>::new();
+            
+            // 设置 JPEG 编码参数
+            let mut params = Vector::<i32>::new();
+            params.push(imgcodecs::IMWRITE_JPEG_QUALITY);
+            params.push(90); // JPEG 质量 (0-100)
+            
+            // 将 Mat 编码为 JPEG 格式
+            match imgcodecs::imencode(".jpg", &frame.image, &mut encoded_data, &params) {
+                Ok(_) => {
+                    // 将编码后的数据转换为 Vec<u8>
+                    let vec_data: Vec<u8> = encoded_data.into();
+                    
+                    // 使用 base64 编码
+                    let base64_string = general_purpose::STANDARD.encode(&vec_data);
+                    // 广播 base64 响应
+                    self.response_tx.broadcast(ImageResponse::Base64ImageData(base64_string.into_bytes()));
+                }
+                Err(e) => {
+                    error!("Failed to encode image to JPEG: {}", e);
+                }
+            }
+        } else {
+            debug!("No image available in buffer");
+        }
     }
     
     fn get_image_opencv(&mut self) {
