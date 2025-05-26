@@ -32,8 +32,8 @@ pub struct Esp32Serial {
 impl Esp32Serial {
     pub fn new() -> Self {
         let (request_tx, request_rx) = crossbeam::channel::unbounded();
-        let response_tx = bus::Bus::new(1000);
-        let message_tx = bus::Bus::new(1000);
+        let response_tx = bus::Bus::new(1);
+        let message_tx = bus::Bus::new(1);
         let (write_tx, write_rx) = crossbeam::channel::unbounded();
         Esp32Serial {
             request_rx,

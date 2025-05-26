@@ -180,12 +180,8 @@ pub fn start_face_image_stream<R: Runtime>(
                 _ => ()
             }
             
-            std::thread::sleep(std::time::Duration::from_millis(33));
+            std::thread::sleep(std::time::Duration::from_millis(1));
         }
-        
-        on_event.send(StreamEvent::Log {
-            message: "Face image stream ended".to_string()
-        }).ok();
     });
 }
 
@@ -215,26 +211,27 @@ pub async fn start_left_eye_image_stream<R: Runtime>(
                 }).ok();
                 continue;
             }
-            match left_eye_stream_resp.recv() {
-                Ok(response) => {
-                    if let ImageResponse::Base64ImageData(data) = response {
-                        // 将 Vec<u8> 转换回 base64 字符串
-                        let base64_string = String::from_utf8(data).unwrap_or_else(|_| {
-                            error!("Invalid UTF-8 in base64 data");
-                            String::new()
-                        });
-                        
-                        // 发送图像事件
-                        on_event.send(StreamEvent::Image {
-                            base64: base64_string,
-                            device: "left_eye".to_string(),
-                        }).unwrap();
-                    }
+            match left_eye_stream_resp.try_recv() {
+                Ok(ImageResponse::Base64ImageData(data)) => {
+                    // 将 Vec<u8> 转换回 base64 字符串
+                    let base64_string = String::from_utf8(data).unwrap_or_else(|_| {
+                        error!("Invalid UTF-8 in base64 data");
+                        String::new()
+                    });
+                    
+                    // 发送图像事件
+                    on_event.send(StreamEvent::Image {
+                        base64: base64_string,
+                        device: "left_eye".to_string(),
+                    }).unwrap();
                 }
-                Err(e) => {
-                    error!("Failed to receive left eye image response: {}", e);
+                Err(TryRecvError::Disconnected) => {
+                    error!("Failed to receive data from disconnected channel");
+                    break;
                 }
+                _ => ()
             }
+            std::thread::sleep(std::time::Duration::from_millis(1));
         }
     });
 }
@@ -257,26 +254,39 @@ pub async fn start_right_eye_image_stream<R: Runtime>(
                 }).ok();
                 continue;
             }
-            match right_eye_stream_resp.recv() {
-                Ok(response) => {
-                    if let ImageResponse::Base64ImageData(data) = response {
-                        // 将 Vec<u8> 转换回 base64 字符串
-                        let base64_string = String::from_utf8(data).unwrap_or_else(|_| {
-                            error!("Invalid UTF-8 in base64 data");
-                            String::new()
-                        });
-                        
-                        // 发送图像事件
-                        on_event.send(StreamEvent::Image {
-                            base64: base64_string,
-                            device: "right_eye".to_string(),
-                        }).unwrap();
-                    }
+            match right_eye_stream_resp.try_recv() {
+                Ok(ImageResponse::Base64ImageData(data)) => {
+                    // 将 Vec<u8> 转换回 base64 字符串
+                    let base64_string = String::from_utf8(data).unwrap_or_else(|_| {
+                        error!("Invalid UTF-8 in base64 data");
+                        String::new()
+                    });
+                    
+                    // 发送图像事件
+                    on_event.send(StreamEvent::Image {
+                        base64: base64_string,
+                        device: "right_eye".to_string(),
+                    }).unwrap();
                 }
-                Err(e) => {
-                    error!("Failed to receive right eye image response: {}", e);
+                Err(TryRecvError::Disconnected) => {
+                    error!("Failed to receive data from disconnected channel");
+                    break;
                 }
+                _ => ()
             }
+            std::thread::sleep(std::time::Duration::from_millis(1));
         }
     });
+}
+
+#[tauri::command]
+pub async fn set_brightness(
+    app: tauri::AppHandle<impl Runtime>, 
+    brightness: u8
+) -> Result<(), String> {
+    let write_tx = app.state::<Sender<SerialSendPacket>>().clone();
+    if let Err(e) = write_tx.send(SerialSendPacket::Brightness(brightness as i32)) {
+        return Err(format!("Failed to send brightness request to ESP32: {}", e));
+    }
+    Ok(())
 }

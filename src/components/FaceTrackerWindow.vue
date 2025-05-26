@@ -272,7 +272,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import deviceService from '../functional/deviceService';
 import messageService from '../functional/pop_window/messageService';
 import { invoke, Channel } from '@tauri-apps/api/core';

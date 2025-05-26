@@ -25,7 +25,7 @@ pub struct ImageStream {
 impl ImageStream {
     pub fn new(serial_msg_rx: bus::BusReader<SerialMessage>, ip: String, device_type: i32) -> Self {
         let (request_tx, request_rx) = crossbeam::channel::unbounded();
-        let response_tx = bus::Bus::<ImageResponse>::new(1000);
+        let response_tx = bus::Bus::<ImageResponse>::new(1);
 
         ImageStream {
             request_rx,
