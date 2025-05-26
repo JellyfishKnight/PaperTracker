@@ -2,7 +2,7 @@ use std::{collections::VecDeque, sync::mpsc::TryRecvError, time::Instant};
 use crossbeam::channel::{Sender, Receiver};
 use opencv::{core::{Mat, MatTraitConst, Vector}, imgcodecs};
 use crate::{serial::serial_msg::SerialMessage, utils::consts::{DEVICE_TYPE_FACE, DEVICE_TYPE_LEFT_EYE, DEVICE_TYPE_RIGHT_EYE}};
-use super::image_msg::{DeviceStatus, Frame, ImageRequest, ImageResponse, PortState};
+use super::image_msg::{DeviceStatus, Frame, ImageRequest, ImageResponse, ImageStreamRequest, PortState};
 use url::Url;
 use tungstenite::{connect, Message, WebSocket};
 use base64::{Engine as _, engine::general_purpose};
@@ -13,6 +13,8 @@ pub struct ImageStream {
     request_rx: Receiver<ImageRequest>,
     request_tx: Sender<ImageRequest>,
     response_tx: bus::Bus<ImageResponse>,
+    settings_rx: Receiver<ImageStreamRequest>,
+    settings_tx: Sender<ImageStreamRequest>,
     serial_msg_rx: bus::BusReader<SerialMessage>,
 
     device_type: i32,
@@ -28,11 +30,13 @@ impl ImageStream {
     pub fn new(serial_msg_rx: bus::BusReader<SerialMessage>, ip: String, device_type: i32) -> Self {
         let (request_tx, request_rx) = crossbeam::channel::unbounded();
         let response_tx = bus::Bus::<ImageResponse>::new(1);
-
+        let (settings_tx, settings_rx) = crossbeam::channel::unbounded();
         ImageStream {
             request_rx,
             request_tx,
             response_tx,
+            settings_rx,
+            settings_tx,
             serial_msg_rx,
             device_type,
             port_state: PortState::Disconnected,
@@ -52,10 +56,33 @@ impl ImageStream {
         self.response_tx.add_rx()
     }
 
+    pub fn get_settings_tx(&self) -> Sender<ImageStreamRequest> {
+        self.settings_tx.clone()
+    }
+
     pub fn start(&mut self) {
         let mut port: Option<WebSocket<tungstenite::stream::MaybeTlsStream<std::net::TcpStream>>> = None;
         self.run = true;
         loop {
+            match self.settings_rx.try_recv() {
+                Ok(request) => {
+                    match request {
+                        ImageStreamRequest::GetDeviceStatus => {
+                            self.get_device_status();
+                        }
+                        ImageStreamRequest::SetRotateAngle(angle) => {
+                            self.rotate_angle = angle;
+                            info!("Set rotate angle to: {}", angle);
+                        }
+                    }
+                }
+                Err(crossbeam::channel::TryRecvError::Disconnected) => {
+                    // Handle error in receiving settings requests
+                    error!("disconnected settings request in image stream");
+                }
+                _ => ()
+            }
+            // Handle settings requests
             match self.request_rx.try_recv() {
                 Ok(request) => {
                     self.handle_request(request);
@@ -176,17 +203,6 @@ impl ImageStream {
             ImageRequest::GetImageOpenCV => {
                 self.get_image_opencv();
             }
-            ImageRequest::GetDeviceStatus => {
-                self.get_device_status();
-            }
-            ImageRequest::Stop => {
-                self.run = false;
-            }
-            ImageRequest::SetRotateAngle(angle) => {
-                self.rotate_angle = angle;
-                info!("Stream {} Set rotate angle to: {}", self.device_type, self.rotate_angle);
-            }
-            _ => {}
         }
     }
 

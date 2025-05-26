@@ -2,7 +2,7 @@ use serde::Serialize;
 use tauri::{Manager, Runtime, AppHandle, ipc::Channel};
 use crossbeam::channel::{Receiver, Sender};
 use std::sync::{mpsc::TryRecvError, Mutex};
-use crate::{serial::serial_msg::{FlashCommand, SerialRequest, SerialResponse, SerialSendPacket, WifiConfig}, websocket::image_msg::{ImageRequest, ImageResponse}};
+use crate::{serial::serial_msg::{FlashCommand, SerialRequest, SerialResponse, SerialSendPacket, WifiConfig}, websocket::image_msg::{ImageRequest, ImageResponse, ImageStreamRequest}};
 use ftlog::*;
 
 use super::init::ImageStreamState;
@@ -187,7 +187,7 @@ pub fn start_face_image_stream<R: Runtime>(
 
 
 #[tauri::command]
-pub async fn start_left_eye_image_stream<R: Runtime>(
+pub fn start_left_eye_image_stream<R: Runtime>(
     app: tauri::AppHandle<R>, 
     on_event: Channel<StreamEvent>
 ) {
@@ -237,7 +237,7 @@ pub async fn start_left_eye_image_stream<R: Runtime>(
 }
 
 #[tauri::command]
-pub async fn start_right_eye_image_stream<R: Runtime>(
+pub fn start_right_eye_image_stream<R: Runtime>(
     app: tauri::AppHandle<R>, 
     on_event: Channel<StreamEvent>
 ) {
@@ -280,7 +280,7 @@ pub async fn start_right_eye_image_stream<R: Runtime>(
 }
 
 #[tauri::command]
-pub async fn set_brightness(
+pub fn set_brightness(
     app: tauri::AppHandle<impl Runtime>, 
     brightness: u8
 ) -> Result<(), String> {
@@ -293,19 +293,19 @@ pub async fn set_brightness(
 
 
 #[tauri::command]
-pub async fn set_rotation(
+pub fn set_rotation(
     app: tauri::AppHandle<impl Runtime>, 
     rotation: f64,
     device_type: i32
 ) -> Result<(), String> {
     let state = app.state::<ImageStreamState>();
     let send_tx = match device_type {
-        1 => state.face_stream_req.clone(),
-        2 => state.left_eye_stream_req.clone(),
-        3 => state.right_eye_stream_req.clone(),
+        1 => state.face_setting_req.clone(),
+        2 => state.left_eye_setting_req.clone(),
+        3 => state.right_eye_setting_req.clone(),
         _ => return Err("Invalid device type".to_string()),
     };
-    if let Err(e) = send_tx.send(ImageRequest::SetRotateAngle(rotation)) {
+    if let Err(e) = send_tx.send(ImageStreamRequest::SetRotateAngle(rotation)) {
         return Err(format!("Failed to send rotation request: {}", e));
     }
     info!("Rotation set to {} for device type {}", rotation, device_type);

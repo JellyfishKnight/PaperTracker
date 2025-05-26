@@ -11,6 +11,9 @@ pub struct ImageStreamState {
     pub face_stream_req: Sender<crate::websocket::image_msg::ImageRequest>,
     pub left_eye_stream_req: Sender<crate::websocket::image_msg::ImageRequest>,
     pub right_eye_stream_req: Sender<crate::websocket::image_msg::ImageRequest>,
+    pub face_setting_req : Sender<crate::websocket::image_msg::ImageStreamRequest>,
+    pub left_eye_setting_req : Sender<crate::websocket::image_msg::ImageStreamRequest>,
+    pub right_eye_setting_req : Sender<crate::websocket::image_msg::ImageStreamRequest>,
 }
 
 pub fn init_device<R: Runtime>(app: &AppHandle<R>) {
@@ -28,6 +31,7 @@ pub fn init_device<R: Runtime>(app: &AppHandle<R>) {
         DEVICE_TYPE_FACE);
     let face_image_stream_request_tx = face_image_stream.get_request_tx();
     let face_image_stream_response_rx = face_image_stream.get_response_rx();
+    let face_setting_request_tx = face_image_stream.get_settings_tx();
     std::thread::spawn(move || {
         face_image_stream.start();
     });
@@ -39,6 +43,7 @@ pub fn init_device<R: Runtime>(app: &AppHandle<R>) {
         DEVICE_TYPE_LEFT_EYE);
     let left_eye_image_stream_request_tx = left_eye_image_stream.get_request_tx();
     let left_eye_image_stream_response_rx = left_eye_image_stream.get_response_rx();
+    let left_eye_setting_request_tx = left_eye_image_stream.get_settings_tx();
     std::thread::spawn(move || {
         left_eye_image_stream.start();
     });
@@ -50,6 +55,7 @@ pub fn init_device<R: Runtime>(app: &AppHandle<R>) {
         DEVICE_TYPE_RIGHT_EYE);
     let right_eye_image_stream_request_tx = right_eye_image_stream.get_request_tx();
     let right_eye_image_stream_response_rx = right_eye_image_stream.get_response_rx();
+    let right_eye_setting_request_tx = right_eye_image_stream.get_settings_tx();
     std::thread::spawn(move || {
         right_eye_image_stream.start();
     });
@@ -65,6 +71,9 @@ pub fn init_device<R: Runtime>(app: &AppHandle<R>) {
         face_stream_req: face_image_stream_request_tx,
         left_eye_stream_req: left_eye_image_stream_request_tx,
         right_eye_stream_req: right_eye_image_stream_request_tx,
+        face_setting_req: face_setting_request_tx,
+        left_eye_setting_req: left_eye_setting_request_tx,
+        right_eye_setting_req: right_eye_setting_request_tx,
     };
 
     app.manage(image_stream_state);

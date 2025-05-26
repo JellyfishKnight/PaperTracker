@@ -18,10 +18,12 @@ pub struct DeviceStatus {
 pub enum ImageRequest {
     GetImageBase64,
     GetImageOpenCV,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ImageStreamRequest {
     GetDeviceStatus,
     SetRotateAngle(f64),
-    Stop,
-    Start,
 }
 
 #[derive(Debug, Clone)]
