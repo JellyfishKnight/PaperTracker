@@ -276,7 +276,7 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue';
 import deviceService from '../functional/deviceService';
 import messageService from '../functional/pop_window/messageService';
 import { invoke, Channel } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { StreamEvent, ImageMessage, Message, StatusMessage } from '../functional/message';
 
 type PageType = 'main' | 'calibration';
 type EnergyMode = 'normal' | 'eco' | 'performance';
@@ -296,30 +296,6 @@ interface CalibrationValues {
   tongueRight: number;
 }
 
-// 定义消息类型
-interface ImageMessage {
-  type: 'image';
-  data: string;  // base64 图像数据
-  device?: string;  // 可选：设备标识
-}
-
-interface LogMessage {
-  type: 'log';
-  data: string;
-}
-
-interface StatusMessage {
-  type: 'status';
-  data: {
-    wifi?: string;
-    serial?: string;
-    ip?: string;
-    battery?: number;
-    brightness?: number;
-  };
-}
-
-type Message = ImageMessage | LogMessage | StatusMessage;
 
 // 页面状态
 const currentPage = ref<PageType>('main');
@@ -346,7 +322,7 @@ const energyMode = ref<EnergyMode>('normal');
 const useFilter = ref<boolean>(false);
 
 // 日志内容
-const logContent = ref<string>('系统启动中...\n连接设备...\n');
+const logContent = ref<string>('');
 
 // 校准值
 const calibration = reactive<CalibrationValues>({
@@ -518,34 +494,7 @@ function handleStatusMessage(message: StatusMessage): void {
   }
 }
 
-// 定义对应的 TypeScript 类型
-interface ImageEvent {
-  type: 'image';
-  data: {
-    base64: string;
-    device: string;
-  };
-}
 
-interface StatusEvent {
-  type: 'status';
-  data: {
-    wifi: string;
-    serial: string;
-    ip: string;
-    battery: number;
-    brightness: number;
-  };
-}
-
-interface LogEvent {
-  type: 'log';
-  data: {
-    message: string;
-  };
-}
-
-type StreamEvent = ImageEvent | StatusEvent | LogEvent;
 
 onMounted(() => {
   const onEvent = new Channel<StreamEvent>();

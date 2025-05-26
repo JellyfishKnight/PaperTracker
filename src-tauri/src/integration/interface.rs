@@ -191,7 +191,17 @@ pub fn start_face_image_stream<R: Runtime>(
 
 
 #[tauri::command]
-pub async fn start_left_eye_image_stream<R: Runtime>(app: tauri::AppHandle<R>, channel: Channel<Vec<u8>>) {
+pub async fn start_left_eye_image_stream<R: Runtime>(
+    app: tauri::AppHandle<R>, 
+    on_event: Channel<StreamEvent>
+) {
+    info!("Starting Left Eye Image Stream");
+    
+    // 发送初始连接消息
+    on_event.send(StreamEvent::Log {
+        message: "Left Eye image stream connected".to_string()
+    }).unwrap();
+
     let state = app.state::<ImageStreamState>();
     let left_eye_stream_req = state.left_eye_stream_req.clone();
     let left_eye_stream_resp = state.left_eye_stream_resp.clone();
@@ -200,14 +210,25 @@ pub async fn start_left_eye_image_stream<R: Runtime>(app: tauri::AppHandle<R>, c
         loop {
             if let Err(e) = left_eye_stream_req.send(ImageRequest::GetImageBase64) {
                 error!("Failed to send left eye image request: {}", e);
+                on_event.send(StreamEvent::Log {
+                    message: format!("Failed to send request: {}", e)
+                }).ok();
                 continue;
             }
             match left_eye_stream_resp.recv() {
                 Ok(response) => {
                     if let ImageResponse::Base64ImageData(data) = response {
-                        if let Err(e) = channel.send(data) {
-                            error!("Failed to send left eye image data to channel: {}", e);
-                        }
+                        // 将 Vec<u8> 转换回 base64 字符串
+                        let base64_string = String::from_utf8(data).unwrap_or_else(|_| {
+                            error!("Invalid UTF-8 in base64 data");
+                            String::new()
+                        });
+                        
+                        // 发送图像事件
+                        on_event.send(StreamEvent::Image {
+                            base64: base64_string,
+                            device: "left_eye".to_string(),
+                        }).unwrap();
                     }
                 }
                 Err(e) => {
@@ -219,7 +240,10 @@ pub async fn start_left_eye_image_stream<R: Runtime>(app: tauri::AppHandle<R>, c
 }
 
 #[tauri::command]
-pub async fn start_right_eye_image_stream<R: Runtime>(app: tauri::AppHandle<R>, channel: Channel<Vec<u8>>) {
+pub async fn start_right_eye_image_stream<R: Runtime>(
+    app: tauri::AppHandle<R>, 
+    on_event: Channel<StreamEvent>
+) {
     let state = app.state::<ImageStreamState>();
     let right_eye_stream_req = state.right_eye_stream_req.clone();
     let right_eye_stream_resp = state.right_eye_stream_resp.clone();
@@ -228,14 +252,25 @@ pub async fn start_right_eye_image_stream<R: Runtime>(app: tauri::AppHandle<R>, 
         loop {
             if let Err(e) = right_eye_stream_req.send(ImageRequest::GetImageBase64) {
                 error!("Failed to send right eye image request: {}", e);
+                on_event.send(StreamEvent::Log {
+                    message: format!("Failed to send request: {}", e)
+                }).ok();
                 continue;
             }
             match right_eye_stream_resp.recv() {
                 Ok(response) => {
                     if let ImageResponse::Base64ImageData(data) = response {
-                        if let Err(e) = channel.send(data) {
-                            error!("Failed to send right eye image data to channel: {}", e);
-                        }
+                        // 将 Vec<u8> 转换回 base64 字符串
+                        let base64_string = String::from_utf8(data).unwrap_or_else(|_| {
+                            error!("Invalid UTF-8 in base64 data");
+                            String::new()
+                        });
+                        
+                        // 发送图像事件
+                        on_event.send(StreamEvent::Image {
+                            base64: base64_string,
+                            device: "right_eye".to_string(),
+                        }).unwrap();
                     }
                 }
                 Err(e) => {
