@@ -1,4 +1,4 @@
-<!-- FaceTrackerWindow.vue -->
+<!-- FaceTrackerWindow.vue - 使用可复用滑动条组件 -->
 <template>
   <div class="face-tracker-window">
     <!-- 子导航栏 -->
@@ -58,36 +58,45 @@
           </div>
           
           <div class="adjustments">
-            <div class="slider-group">
-              <label>亮度调整</label>
-              <div class="slider" @click="updateSlider($event, 'brightness')">
-                <div class="track" :style="{ width: brightness + '%' }"></div>
-                <div class="thumb" :style="{ left: brightness + '%' }"></div>
-              </div>
+            <!-- 使用可复用的滑动条组件 -->
+            <DraggableSlider
+              v-model="brightness"
+              label="亮度调整"
+              unit="%"
+              :min="0"
+              :max="100"
+              :step="1"
+              :throttle-ms="50"
+              @input="handleBrightnessRealTimeUpdate"
+              @change="handleBrightnessChange"
+            />
+            
+            <DraggableSlider
+              v-model="rotation"
+              label="旋转角度调整"
+              unit="°"
+              :min="0"
+              :max="360"
+              :step="1"
+              :throttle-ms="50"
+              @input="handleRotationRealTimeUpdate"
+              @change="handleRotationChange"
+            />
+          </div>
+  
+          <div class="option-controls">
+            <div class="mode-selector">
+              <label>性能模式选择</label>
+              <select v-model="energyMode">
+                <option value="normal">普通模式</option>
+                <option value="eco">节能模式</option>
+                <option value="performance">性能模式</option>
+              </select>
             </div>
   
-            <div class="slider-group">
-              <label>旋转角度调整</label>
-              <div class="slider" @click="updateSlider($event, 'rotation')">
-                <div class="track" :style="{ width: rotation / 10.8 + '%' }"></div>
-                <div class="thumb" :style="{ left: rotation / 10.8 + '%' }"></div>
-              </div>
-            </div>
-  
-            <div class="option-controls">
-              <div class="mode-selector">
-                <label>性能模式选择</label>
-                <select v-model="energyMode">
-                  <option value="normal">普通模式</option>
-                  <option value="eco">节能模式</option>
-                  <option value="performance">性能模式</option>
-                </select>
-              </div>
-  
-              <div class="checkbox-group">
-                <input type="checkbox" id="filter" v-model="useFilter">
-                <label for="filter">启用滤波（减少抖动）</label>
-              </div>
+            <div class="checkbox-group">
+              <input type="checkbox" id="filter" v-model="useFilter">
+              <label for="filter">启用滤波（减少抖动）</label>
             </div>
           </div>
   
@@ -97,7 +106,6 @@
               <div class="ip-text">{{ ipAddress }}</div>
             </div>
             
-            <!-- 发送按钮移动到这里 -->
             <button class="send-button" @click="sendWifiSettings">发送</button>
           </div>
         </div>
@@ -114,7 +122,6 @@
 
     <!-- 标定页面内容 -->
     <div v-if="currentPage === 'calibration'" class="page-content calibration-page">
-      <!-- Calibration page content -->
       <div class="magnification-control">
         <label>放大倍率</label>
         <span>x1</span>
@@ -124,139 +131,21 @@
       <div class="tracking-controls">
         <div class="scroll-container">
           <div class="tracking-parameters">
-            <!-- 参数调整行 -->
-            <div class="parameter-row">
-              <label>左脸颊</label>
-              <div class="slider" @click="updateCalibrationSlider($event, 'cheekLeft')">
-                <div class="track" :style="{ width: calibration.cheekLeft + '%' }"></div>
-                <div class="thumb" :style="{ left: calibration.cheekLeft + '%' }"></div>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-bar-fill" :style="{ width: calibration.cheekLeft + '%' }"></div>
-              </div>
-            </div>
-
-            <!-- 其他参数行 -->
-            <div class="parameter-row">
-              <label>右脸颊</label>
-              <div class="slider" @click="updateCalibrationSlider($event, 'cheekRight')">
-                <div class="track" :style="{ width: calibration.cheekRight + '%' }"></div>
-                <div class="thumb" :style="{ left: calibration.cheekRight + '%' }"></div>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-bar-fill" :style="{ width: calibration.cheekRight + '%' }"></div>
-              </div>
-            </div>
-
-            <div class="parameter-row">
-              <label>下巴下移</label>
-              <div class="slider" @click="updateCalibrationSlider($event, 'jawOpen')">
-                <div class="track" :style="{ width: calibration.jawOpen + '%' }"></div>
-                <div class="thumb" :style="{ left: calibration.jawOpen + '%' }"></div>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-bar-fill" :style="{ width: calibration.jawOpen + '%' }"></div>
-              </div>
-            </div>
-
-            <div class="parameter-row">
-              <label>下巴左移</label>
-              <div class="slider" @click="updateCalibrationSlider($event, 'jawLeft')">
-                <div class="track" :style="{ width: calibration.jawLeft + '%' }"></div>
-                <div class="thumb" :style="{ left: calibration.jawLeft + '%' }"></div>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-bar-fill" :style="{ width: calibration.jawLeft + '%' }"></div>
-              </div>
-            </div>
-
-            <div class="parameter-row">
-              <label>下巴右移</label>
-              <div class="slider" @click="updateCalibrationSlider($event, 'jawRight')">
-                <div class="track" :style="{ width: calibration.jawRight + '%' }"></div>
-                <div class="thumb" :style="{ left: calibration.jawRight + '%' }"></div>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-bar-fill" :style="{ width: calibration.jawRight + '%' }"></div>
-              </div>
-            </div>
-
-            <div class="parameter-row">
-              <label>嘴左移</label>
-              <div class="slider" @click="updateCalibrationSlider($event, 'mouthLeft')">
-                <div class="track" :style="{ width: calibration.mouthLeft + '%' }"></div>
-                <div class="thumb" :style="{ left: calibration.mouthLeft + '%' }"></div>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-bar-fill" :style="{ width: calibration.mouthLeft + '%' }"></div>
-              </div>
-            </div>
-
-            <div class="parameter-row">
-              <label>嘴右移</label>
-              <div class="slider" @click="updateCalibrationSlider($event, 'mouthRight')">
-                <div class="track" :style="{ width: calibration.mouthRight + '%' }"></div>
-                <div class="thumb" :style="{ left: calibration.mouthRight + '%' }"></div>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-bar-fill" :style="{ width: calibration.mouthRight + '%' }"></div>
-              </div>
-            </div>
-
-            <div class="parameter-row">
-              <label>舌头伸出</label>
-              <div class="slider" @click="updateCalibrationSlider($event, 'tongueOut')">
-                <div class="track" :style="{ width: calibration.tongueOut + '%' }"></div>
-                <div class="thumb" :style="{ left: calibration.tongueOut + '%' }"></div>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-bar-fill" :style="{ width: calibration.tongueOut + '%' }"></div>
-              </div>
-            </div>
-
-            <div class="parameter-row">
-              <label>舌头上移</label>
-              <div class="slider" @click="updateCalibrationSlider($event, 'tongueUp')">
-                <div class="track" :style="{ width: calibration.tongueUp + '%' }"></div>
-                <div class="thumb" :style="{ left: calibration.tongueUp + '%' }"></div>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-bar-fill" :style="{ width: calibration.tongueUp + '%' }"></div>
-              </div>
-            </div>
-
-            <div class="parameter-row">
-              <label>舌头下移</label>
-              <div class="slider" @click="updateCalibrationSlider($event, 'tongueDown')">
-                <div class="track" :style="{ width: calibration.tongueDown + '%' }"></div>
-                <div class="thumb" :style="{ left: calibration.tongueDown + '%' }"></div>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-bar-fill" :style="{ width: calibration.tongueDown + '%' }"></div>
-              </div>
-            </div>
-
-            <div class="parameter-row">
-              <label>舌头左移</label>
-              <div class="slider" @click="updateCalibrationSlider($event, 'tongueLeft')">
-                <div class="track" :style="{ width: calibration.tongueLeft + '%' }"></div>
-                <div class="thumb" :style="{ left: calibration.tongueLeft + '%' }"></div>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-bar-fill" :style="{ width: calibration.tongueLeft + '%' }"></div>
-              </div>
-            </div>
-
-            <div class="parameter-row">
-              <label>舌头右移</label>
-              <div class="slider" @click="updateCalibrationSlider($event, 'tongueRight')">
-                <div class="track" :style="{ width: calibration.tongueRight + '%' }"></div>
-                <div class="thumb" :style="{ left: calibration.tongueRight + '%' }"></div>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-bar-fill" :style="{ width: calibration.tongueRight + '%' }"></div>
-              </div>
-            </div>
+            <!-- 使用可复用滑动条组件进行校准参数调整 -->
+            <DraggableSlider
+              v-for="(param, key) in calibrationParams"
+              :key="key"
+              v-model="calibration[key as keyof CalibrationValues]"
+              :label="param.label"
+              unit="%"
+              :min="0"
+              :max="100"
+              :step="0.1"
+              :precision="1"
+              :throttle-ms="50"
+              @input="handleCalibrationRealTimeUpdate(key as keyof CalibrationValues, $event)"
+              @change="handleCalibrationChange(key as keyof CalibrationValues, $event)"
+            />
           </div>
         </div>
 
@@ -273,6 +162,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue';
+import DraggableSlider from './DraggableSlider.vue'; // 导入可复用滑动条组件
 import deviceService from '../functional/deviceService';
 import messageService from '../functional/pop_window/messageService';
 import { invoke, Channel } from '@tauri-apps/api/core';
@@ -296,6 +186,21 @@ interface CalibrationValues {
   tongueRight: number;
 }
 
+// 标定参数配置
+const calibrationParams = {
+  cheekLeft: { label: '左脸颊' },
+  cheekRight: { label: '右脸颊' },
+  jawOpen: { label: '下巴下移' },
+  jawLeft: { label: '下巴左移' },
+  jawRight: { label: '下巴右移' },
+  mouthLeft: { label: '嘴左移' },
+  mouthRight: { label: '嘴右移' },
+  tongueOut: { label: '舌头伸出' },
+  tongueUp: { label: '舌头上移' },
+  tongueDown: { label: '舌头下移' },
+  tongueLeft: { label: '舌头左移' },
+  tongueRight: { label: '舌头右移' }
+};
 
 // 页面状态
 const currentPage = ref<PageType>('main');
@@ -315,7 +220,7 @@ const password = ref<string>('');
 
 // 滑块值
 const brightness = ref<number>(50);
-const rotation = ref<number>(540); // 0-1080范围的中间值
+const rotation = ref<number>(0);
 
 // 选项
 const energyMode = ref<EnergyMode>('normal');
@@ -340,29 +245,70 @@ const calibration = reactive<CalibrationValues>({
   tongueRight: 24
 });
 
-// 保存 channel 引用，用于清理
-let imageChannel: Channel<Uint8Array> | null = null;
-
 // 添加日志的辅助函数
 function appendLog(message: string): void {
   const timestamp = new Date().toLocaleTimeString();
   logContent.value += `[${timestamp}] ${message}\n`;
   
-  // 自动滚动到底部
-  const logArea = document.querySelector('.log-area') as HTMLTextAreaElement;
-  if (logArea) {
-    logArea.scrollTop = logArea.scrollHeight;
-  }
+  setTimeout(() => {
+    const logArea = document.querySelector('.log-area') as HTMLTextAreaElement;
+    if (logArea) {
+      logArea.scrollTop = logArea.scrollHeight;
+    }
+  }, 10);
 }
 
-// 方法
+// 亮度处理函数
+function handleBrightnessRealTimeUpdate(value: number): void {
+  // 实时更新过程中的处理（可选）
+  console.log(`实时更新亮度: ${Math.round(value)}%`);
+}
+
+function handleBrightnessChange(value: number): void {
+  appendLog(`亮度调整为: ${Math.round(value)}%`);
+  invoke('set_brightness', { brightness: Math.round(value) })
+    .catch((error) => {
+      appendLog(`亮度调整失败: ${error}`);
+    });
+}
+
+// 旋转角度处理函数
+function handleRotationRealTimeUpdate(value: number): void {
+  // 实时更新，提供连续旋转效果
+  invoke('set_rotation', { rotation: value, deviceType: 1 })
+    .catch((error) => {
+      console.error(`实时旋转角度调整失败: ${error}`);
+    });
+}
+
+function handleRotationChange(value: number): void {
+  appendLog(`旋转角度调整为: ${Math.round(value)}°`);
+  // 最终确认更新在实时更新中已经处理，这里可以添加额外的逻辑
+}
+
+// 校准参数处理函数
+function handleCalibrationRealTimeUpdate(paramName: keyof CalibrationValues, value: number): void {
+  // 实时更新校准参数
+  invoke('update_calibration', { 
+    param: paramName, 
+    value: value 
+  }).catch((error) => {
+    console.error(`实时校准参数更新失败: ${error}`);
+  });
+}
+
+function handleCalibrationChange(paramName: keyof CalibrationValues, value: number): void {
+  appendLog(`${calibrationParams[paramName].label} 调整为: ${Math.round(value)}%`);
+  // 最终确认更新在实时更新中已经处理
+}
+
+// 其他功能函数
 function sendWifiSettings(): void {
   if (!ssid.value || !password.value) {
     messageService.warning("请输入WIFI名称和密码");
     return;
   }
   
-  // 读取SSID和密码
   invoke('write_wifi_info', { ssid: ssid.value, password: password.value })
     .then(() => {
       messageService.info("设置WIFI成功，请重启设备");
@@ -396,48 +342,7 @@ function restartDevice(): void {
     });
 }
 
-function updateSlider(event: MouseEvent, sliderName: 'brightness' | 'rotation'): void {
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const percentage = Math.min(100, Math.max(0, (x / rect.width) * 100));
-  
-  if (sliderName === 'brightness') {
-    brightness.value = percentage;
-    // 发送亮度调整命令
-    invoke('set_brightness', { brightness: Math.round(percentage) })
-      .catch((error) => {
-        appendLog(`亮度调整失败: ${error}`);
-      });
-  } else if (sliderName === 'rotation') {
-    rotation.value = percentage * 3.6; // 缩放到0-1080范围
-    // 发送旋转角度调整命令
-    invoke('set_rotation', { rotation: rotation.value, deviceType: 1 })
-      .catch((error) => {
-        appendLog(`旋转角度调整失败: ${error}`);
-      });
-  }
-}
-
-type CalibrationParam = keyof CalibrationValues;
-
-function updateCalibrationSlider(event: MouseEvent, paramName: CalibrationParam): void {
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const percentage = Math.min(100, Math.max(0, (x / rect.width) * 100));
-  
-  calibration[paramName] = percentage;
-  
-  // 发送校准参数更新
-  invoke('update_calibration', { 
-    param: paramName, 
-    value: percentage 
-  }).catch((error) => {
-    appendLog(`校准参数更新失败: ${error}`);
-  });
-}
-
 function showSerialLog(): void {
-  // 显示串口日志
   invoke('open_serial_log_window')
     .catch((error) => {
       messageService.error("打开串口日志窗口失败: " + error);
@@ -459,12 +364,9 @@ function handleMessage(message: Message): void {
   }
 }
 
-// 处理图像消息
 function handleImageMessage(message: ImageMessage): void {
-  // 将 base64 数据转换为 data URL 格式
   const imageDataUrl = `data:image/jpeg;base64,${message.data}`;
   
-  // 根据设备类型或当前页面更新对应的图像
   if (message.device === 'calibration' || currentPage.value === 'calibration') {
     calibrationImage.value = imageDataUrl;
   } else {
@@ -472,7 +374,6 @@ function handleImageMessage(message: ImageMessage): void {
   }
 }
 
-// 处理状态消息
 function handleStatusMessage(message: StatusMessage): void {
   const { data } = message;
   
@@ -486,15 +387,12 @@ function handleStatusMessage(message: StatusMessage): void {
     ipAddress.value = data.ip;
   }
   if (data.battery !== undefined) {
-    // 可以添加电池状态显示
     appendLog(`电池电量: ${data.battery}%`);
   }
   if (data.brightness !== undefined) {
     brightness.value = data.brightness;
   }
 }
-
-
 
 onMounted(() => {
   const onEvent = new Channel<StreamEvent>();
@@ -504,7 +402,6 @@ onMounted(() => {
     
     switch (event.type) {
       case 'image':
-        // 构造 data URL 并显示
         const imageDataUrl = `data:image/jpeg;base64,${event.data.base64}`;
         
         if (event.data.device === 'face' || currentPage.value === 'main') {
@@ -518,7 +415,7 @@ onMounted(() => {
         break;
     }
   };
-  // 启动图像流
+
   invoke('start_face_image_stream', { onEvent })
     .then(() => {
       appendLog("图像流已启动");
@@ -527,9 +424,7 @@ onMounted(() => {
       appendLog(`启动图像流失败: ${error}`);
       messageService.error("启动图像流失败: " + error);
     });
-
-  });
-
+});
 </script>
 
 <style scoped>
@@ -587,7 +482,6 @@ onMounted(() => {
   gap: 20px;
 }
 
-/* 主布局样式 */
 .main-layout {
   display: flex;
   gap: 20px;
@@ -605,10 +499,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
-}
-
-.image-section {
-  position: relative;
 }
 
 .camera-view {
@@ -634,7 +524,6 @@ onMounted(() => {
   object-fit: cover;
 }
 
-/* 按钮容器样式 */
 .action-buttons-container {
   display: flex;
   flex-direction: column;
@@ -676,96 +565,17 @@ onMounted(() => {
   resize: vertical;
 }
 
-/* 滑块样式 */
-.slider {
-  width: 100%;
-  height: 20px;
-  position: relative;
-  background-color: #444;
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-.slider .track {
-  position: absolute;
-  height: 100%;
-  background-color: var(--highlight-color);
-  border-radius: 10px;
-  transition: width 0.3s ease;
-}
-
-.slider .thumb {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 20px;
-  height: 20px;
-  background-color: #fff;
-  border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: left 0.3s ease;
-}
-
-/* 进度条样式 */
-.progress-bar {
-  width: 150px;
-  height: 8px;
-  background-color: #444;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.progress-bar-fill {
-  height: 100%;
-  background-color: var(--highlight-color);
-  transition: width 0.3s ease;
-}
-
-/* 更新发送按钮样式和位置 */
-.ip-section {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.send-button {
-  width: 100%;
-  height: 50px;
-  padding: 10px;
-  font-size: 1.1rem;
-  background-color: var(--widget-background);
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.send-button:hover {
-  background-color: var(--highlight-color);
-  color: #fff;
-}
-
 .adjustments {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-}
-
-.slider-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.slider-group label {
-  min-width: 100px;
+  gap: 15px;
 }
 
 .option-controls {
   display: flex;
   align-items: center;
   gap: 20px;
+  margin-top: 10px;
 }
 
 .mode-selector {
@@ -788,6 +598,12 @@ onMounted(() => {
   gap: 5px;
 }
 
+.ip-section {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
 .ip-display {
   display: flex;
   align-items: center;
@@ -803,6 +619,24 @@ onMounted(() => {
   min-height: 40px;
   display: flex;
   align-items: center;
+}
+
+.send-button {
+  width: 100%;
+  height: 50px;
+  padding: 10px;
+  font-size: 1.1rem;
+  background-color: var(--widget-background);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.send-button:hover {
+  background-color: var(--highlight-color);
+  color: #fff;
 }
 
 .log-section {
@@ -871,26 +705,7 @@ onMounted(() => {
 .tracking-parameters {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-}
-
-.parameter-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.parameter-row label {
-  min-width: 90px;
-  font-size: 0.9rem;
-}
-
-.parameter-row .slider {
-  width: 200px;
-}
-
-.parameter-row .progress-bar {
-  width: 150px;
+  gap: 15px;
 }
 
 .calibration-image {
