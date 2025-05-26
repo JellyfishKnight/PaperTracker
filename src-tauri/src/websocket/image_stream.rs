@@ -7,6 +7,7 @@ use url::Url;
 use tungstenite::{connect, Message, WebSocket};
 use base64::{Engine as _, engine::general_purpose};
 use ftlog::*;
+use crate::utils::roi::Roi;
 
 pub struct ImageStream {
     request_rx: Receiver<ImageRequest>,
@@ -19,7 +20,8 @@ pub struct ImageStream {
     ip: String,
     run: bool,
     device_status: DeviceStatus,
-    image_buffer: VecDeque<Frame>
+    image_buffer: VecDeque<Frame>,
+    rotate_angle: f64,
 }
 
 impl ImageStream {
@@ -38,6 +40,7 @@ impl ImageStream {
             run: false,
             device_status: DeviceStatus { battery: 0, brightness: 0 },
             image_buffer: VecDeque::new(),
+            rotate_angle: 0.0,
         }
     }
 
@@ -117,13 +120,25 @@ impl ImageStream {
                 match imgcodecs::imdecode(&Mat::from_slice(&data).unwrap(), imgcodecs::IMREAD_COLOR) {
                     Ok(image) if !image.empty() => {
                         // Create a new frame and add it to the buffer
-                        let frame = Frame {
+                        let mut frame = Frame {
                             image,
                             timestamp: Instant::now(),
                         };
-                        
                         // Keep only the most recent frame
                         self.image_buffer.clear();
+                        let center = opencv::core::Point2f::new((frame.image.cols() / 2) as f32, (frame.image.rows() / 2) as f32);
+                        let rotation_matrix = opencv::imgproc::get_rotation_matrix_2d(center, self.rotate_angle, 1.0).unwrap();
+                        let mut rotated_image = opencv::core::Mat::default();
+                        opencv::imgproc::warp_affine(
+                            &frame.image,
+                            &mut rotated_image,
+                            &rotation_matrix,
+                            frame.image.size().unwrap(),
+                            opencv::imgproc::INTER_LINEAR,
+                            opencv::core::BORDER_CONSTANT,
+                            opencv::core::Scalar::default(),
+                        ).unwrap();
+                        frame.image = rotated_image;
                         self.image_buffer.push_back(frame);
                     }
                     Ok(_) => {
@@ -166,6 +181,10 @@ impl ImageStream {
             }
             ImageRequest::Stop => {
                 self.run = false;
+            }
+            ImageRequest::SetRotateAngle(angle) => {
+                self.rotate_angle = angle;
+                info!("Stream {} Set rotate angle to: {}", self.device_type, self.rotate_angle);
             }
             _ => {}
         }

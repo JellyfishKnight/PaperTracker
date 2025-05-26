@@ -19,6 +19,7 @@ pub enum ImageRequest {
     GetImageBase64,
     GetImageOpenCV,
     GetDeviceStatus,
+    SetRotateAngle(f64),
     Stop,
     Start,
 }

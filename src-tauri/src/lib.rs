@@ -4,6 +4,7 @@ mod utils;
 mod serial;
 mod websocket;
 mod integration;
+mod algorithm;
 
 use paper_tracker_config::config::init_config;
 use updater::version_check::check_for_updates;
@@ -15,6 +16,8 @@ use integration::interface::{
     start_face_image_stream,
     start_left_eye_image_stream,
     start_right_eye_image_stream,
+    set_brightness,
+    set_rotation
 };
 use integration::init::init_device;
 
@@ -48,6 +51,8 @@ pub fn run() {
             start_face_image_stream,
             start_left_eye_image_stream,
             start_right_eye_image_stream,
+            set_brightness,
+            set_rotation,
             ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

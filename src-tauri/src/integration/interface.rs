@@ -290,3 +290,24 @@ pub async fn set_brightness(
     }
     Ok(())
 }
+
+
+#[tauri::command]
+pub async fn set_rotation(
+    app: tauri::AppHandle<impl Runtime>, 
+    rotation: f64,
+    device_type: i32
+) -> Result<(), String> {
+    let state = app.state::<ImageStreamState>();
+    let send_tx = match device_type {
+        1 => state.face_stream_req.clone(),
+        2 => state.left_eye_stream_req.clone(),
+        3 => state.right_eye_stream_req.clone(),
+        _ => return Err("Invalid device type".to_string()),
+    };
+    if let Err(e) = send_tx.send(ImageRequest::SetRotateAngle(rotation)) {
+        return Err(format!("Failed to send rotation request: {}", e));
+    }
+    info!("Rotation set to {} for device type {}", rotation, device_type);
+    Ok(())
+}

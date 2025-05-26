@@ -404,14 +404,14 @@ function updateSlider(event: MouseEvent, sliderName: 'brightness' | 'rotation'):
   if (sliderName === 'brightness') {
     brightness.value = percentage;
     // 发送亮度调整命令
-    invoke('set_brightness', { value: Math.round(percentage) })
+    invoke('set_brightness', { brightness: Math.round(percentage) })
       .catch((error) => {
         appendLog(`亮度调整失败: ${error}`);
       });
   } else if (sliderName === 'rotation') {
-    rotation.value = percentage * 10.8; // 缩放到0-1080范围
+    rotation.value = percentage * 3.6; // 缩放到0-1080范围
     // 发送旋转角度调整命令
-    invoke('set_rotation', { value: Math.round(rotation.value) })
+    invoke('set_rotation', { rotation: rotation.value, deviceType: 1 })
       .catch((error) => {
         appendLog(`旋转角度调整失败: ${error}`);
       });
