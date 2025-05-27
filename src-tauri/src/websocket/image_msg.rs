@@ -12,6 +12,8 @@ pub enum PortState {
 pub struct DeviceStatus {
     pub battery: i32,
     pub brightness: i32,
+    pub wifi: String,
+    
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,16 +23,20 @@ pub enum ImageRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ImageStreamRequest {
+pub enum StreamSettingRequest {
     GetDeviceStatus,
     SetRotateAngle(f64),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum StreamSettingResponse {
+    DeviceStatus(DeviceStatus),
 }
 
 #[derive(Debug, Clone)]
 pub enum ImageResponse {
     Base64ImageData(Vec<u8>),
     OpenCVImageData(Mat),
-    DeviceStatus(DeviceStatus),
 }
 
 // Frame with metadata

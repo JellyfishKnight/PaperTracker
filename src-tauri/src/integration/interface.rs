@@ -1,19 +1,18 @@
 use serde::Serialize;
-use tauri::{Manager, Runtime, AppHandle, ipc::Channel};
+use tauri::{ipc::Channel, AppHandle, Emitter, Manager, Runtime};
 use crossbeam::channel::{Receiver, Sender};
 use std::sync::{mpsc::TryRecvError, Mutex};
-use crate::{serial::serial_msg::{FlashCommand, SerialRequest, SerialResponse, SerialSendPacket, WifiConfig}, websocket::image_msg::{ImageRequest, ImageResponse, ImageStreamRequest}};
+use crate::{serial::serial_msg::{self, FlashCommand, SerialRequest, SerialResponse, SerialSendPacket, WifiConfig}, websocket::image_msg::{ImageRequest, ImageResponse, StreamSettingRequest, StreamSettingResponse}};
 use ftlog::*;
 
-use super::init::ImageStreamState;
+use super::init::{ImageStreamState, SerialState};
 
 
 #[tauri::command]
 pub async fn restart_esp32<R: Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
-    let request_tx = app.state::<Sender<SerialRequest>>().clone();
-
-    let state = app.state::<Mutex<bus::BusReader<SerialResponse>>>();
-    let mut response_rx = state.lock().unwrap();
+    let state = app.state::<SerialState>();
+    let request_tx = state.global_req_tx.clone();
+    let mut response_rx = state.global_resp_rx.lock().unwrap();
     if let Err(e) = request_tx.send(SerialRequest::GetStatus) {
         return Err(format!("Failed to send get status request to ESP32: {}", e));
     }
@@ -67,6 +66,30 @@ pub async fn restart_esp32<R: Runtime>(app: tauri::AppHandle<R>) -> Result<(), S
 
 #[tauri::command]
 pub async fn flash_esp32<R: Runtime>(app: tauri::AppHandle<R>, device_type: i32) -> Result<(), String> {
+    let state = app.state::<SerialState>();
+    let request_tx = state.global_req_tx.clone();
+    let mut response_rx = state.global_resp_rx.lock().unwrap();
+    if let Err(e) = request_tx.send(SerialRequest::GetStatus) {
+        return Err(format!("Failed to send get status request to ESP32: {}", e));
+    }
+    loop {
+        match response_rx.recv() {
+            Ok(SerialResponse::Status((state, _))) => {
+                match state {
+                    crate::serial::serial_msg::PortState::Disconnected => {
+                        return Err("ESP32设备未连接".to_string());
+                    }
+                    crate::serial::serial_msg::PortState::Connected => {
+                        break;
+                    }
+                }
+            }
+            Ok(_) => {}
+            Err(e) => {
+                return Err(format!("Failed to receive response from ESP32: {}", e));
+            }
+        }
+    }
     let tool_path = app.path().resolve("assets/esptool", tauri::path::BaseDirectory::Resource);
     if tool_path.is_err() {
         return Err("Failed to resolve tool path".to_string());
@@ -88,7 +111,6 @@ pub async fn flash_esp32<R: Runtime>(app: tauri::AppHandle<R>, device_type: i32)
     if firmware_path.is_err() {
         return Err("Failed to resolve firmware path".to_string());
     }
-    let request_tx = app.state::<Sender<SerialRequest>>().clone();
     if let Err(e) = request_tx.send(SerialRequest::Flash(FlashCommand {
         tool_path: tool_path.unwrap().to_str().unwrap().to_string(),
         boot_loader_path: bootloader_path.unwrap().to_str().unwrap().to_string(),
@@ -120,11 +142,11 @@ pub enum StreamEvent {
         device: String,
     },
     Status {
-        wifi: String,
-        serial: String,
+        serial: bool,
         ip: String,
         battery: u8,
         brightness: u8,
+        device_type: i32,
     },
     Log {
         message: String,
@@ -305,9 +327,252 @@ pub fn set_rotation(
         3 => state.right_eye_setting_req.clone(),
         _ => return Err("Invalid device type".to_string()),
     };
-    if let Err(e) = send_tx.send(ImageStreamRequest::SetRotateAngle(rotation)) {
+    if let Err(e) = send_tx.send(StreamSettingRequest::SetRotateAngle(rotation)) {
         return Err(format!("Failed to send rotation request: {}", e));
     }
     info!("Rotation set to {} for device type {}", rotation, device_type);
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_face_stream_status(
+    app: tauri::AppHandle<impl Runtime>,
+    channel: Channel<StreamEvent>
+) {
+    let state = app.state::<ImageStreamState>();
+    let stream_request_tx = state.face_setting_req.clone();
+    let stream_response_rx = state.face_setting_resp.clone();
+    let state = app.state::<SerialState>();
+    let serial_req_tx = state.global_req_tx.clone();
+    let serial_res_rx = state.global_resp_rx.clone();
+    std::thread::spawn(move || {
+        loop {
+            let mut face_status = StreamEvent::Status {
+                serial: false,
+                ip: String::new(),
+                battery: 0,
+                brightness: 0,
+                device_type: 1, // Face device type
+            };
+            // 发送获取设备状态请求
+            if let Err(e) = stream_request_tx.send(StreamSettingRequest::GetDeviceStatus) {
+                error!("Failed to send get status request: {}", e);
+            }
+            let mut response_rx = stream_response_rx.lock().unwrap();
+            match response_rx.try_recv() {
+                Ok(StreamSettingResponse::DeviceStatus(status)) => {
+                    face_status = StreamEvent::Status {
+                        serial: false,
+                        ip: status.wifi,
+                        battery: status.battery as u8,
+                        brightness: status.brightness as u8,
+                        device_type: 1, // Face device type
+                    };
+                }
+                Err(TryRecvError::Disconnected) => {
+                    error!("Failed to receive data from disconnected face stream channel");
+                    break;
+                }
+                _ => {}
+            }
+            if let Err(e) = serial_req_tx.send(SerialRequest::GetStatus) {
+                error!("Failed to send get status request to ESP32: {}", e);
+            }
+            match serial_res_rx.lock().unwrap().try_recv() {
+                Ok(SerialResponse::Status((state, device))) => {
+                    if device == 1 {
+                        if let crate::serial::serial_msg::PortState::Connected = state {
+                            // 发送串口状态事件
+                            if let StreamEvent::Status { serial: _, ip, battery, brightness, device_type } = face_status {
+                                face_status = StreamEvent::Status {
+                                    serial: true,
+                                    ip,
+                                    battery,
+                                    brightness,
+                                    device_type,
+                                };
+                            }
+                            // 发送串口断开事件
+                            if let Err(e) = channel.send(StreamEvent::Log {
+                                message: "ESP32 Connected".to_string(),
+                            }) {
+                                error!("Failed to send disconnect event: {}", e);
+                            }
+                        } 
+                    }   
+                }
+                Err(TryRecvError::Disconnected) => {
+                    error!("Failed to receive data from disconnected serial channel");
+                }
+                _ => {}
+            }
+            // 发送状态事件
+            if let Err(e) = channel.send(face_status) {
+                error!("Failed to send face stream status: {}", e);
+            }
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+    });
+}
+
+#[tauri::command]
+pub fn get_left_eye_stream_status(
+    app: tauri::AppHandle<impl Runtime>,
+    channel: Channel<StreamEvent>
+) {
+    let state = app.state::<ImageStreamState>();
+    let stream_request_tx = state.left_eye_setting_req.clone();
+    let stream_response_rx = state.left_eye_setting_resp.clone();
+    let state = app.state::<SerialState>();
+    let serial_req_tx = state.global_req_tx.clone();
+    let serial_res_rx = state.global_resp_rx.clone();
+    std::thread::spawn(move || {
+        loop {
+            let mut left_eye_status = StreamEvent::Status {
+                serial: false,
+                ip: String::new(),
+                battery: 0,
+                brightness: 0,
+                device_type: 2, // Left Eye device type
+            };
+            // 发送获取设备状态请求
+            if let Err(e) = stream_request_tx.send(StreamSettingRequest::GetDeviceStatus) {
+                error!("Failed to send get status request: {}", e);
+            }
+            let mut response_rx = stream_response_rx.lock().unwrap();
+            match response_rx.try_recv() {
+                Ok(StreamSettingResponse::DeviceStatus(status)) => {
+                    left_eye_status = StreamEvent::Status {
+                        serial: false,
+                        ip: status.wifi,
+                        battery: status.battery as u8,
+                        brightness: status.brightness as u8,
+                        device_type: 2, // Left Eye device type
+                    };
+                }
+                Err(TryRecvError::Disconnected) => {
+                    error!("Failed to receive data from disconnected face stream channel");
+                    break;
+                }
+                _ => {}
+            }
+            if let Err(e) = serial_req_tx.send(SerialRequest::GetStatus) {
+                error!("Failed to send get status request to ESP32: {}", e);
+            }
+            match serial_res_rx.lock().unwrap().try_recv() {
+                Ok(SerialResponse::Status((state, device))) => {
+                    if device == 2 {
+                        if let crate::serial::serial_msg::PortState::Connected = state {
+                            // 发送串口状态事件
+                            if let StreamEvent::Status { serial: _, ip, battery, brightness, device_type } = left_eye_status {
+                                left_eye_status = StreamEvent::Status {
+                                    serial: true,
+                                    ip,
+                                    battery,
+                                    brightness,
+                                    device_type,
+                                };
+                            }
+                            // 发送串口断开事件
+                            if let Err(e) = channel.send(StreamEvent::Log {
+                                message: "ESP32 Connected".to_string(),
+                            }) {
+                                error!("Failed to send disconnect event: {}", e);
+                            }
+                        } 
+                    }   
+                }
+                Err(TryRecvError::Disconnected) => {
+                    error!("Failed to receive data from disconnected serial channel");
+                }
+                _ => {}
+            }
+            // 发送状态事件
+            if let Err(e) = channel.send(left_eye_status) {
+                error!("Failed to send face stream status: {}", e);
+            }
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+    });
+}
+
+#[tauri::command]
+pub fn get_right_eye_stream_status(
+    app: tauri::AppHandle<impl Runtime>,
+    channel: Channel<StreamEvent>
+) {
+    let state = app.state::<ImageStreamState>();
+    let stream_request_tx = state.right_eye_setting_req.clone();
+    let stream_response_rx = state.right_eye_setting_resp.clone();
+    let state = app.state::<SerialState>();
+    let serial_req_tx = state.global_req_tx.clone();
+    let serial_res_rx = state.global_resp_rx.clone();
+    std::thread::spawn(move || {
+        loop {
+            let mut right_eye_status = StreamEvent::Status {
+                serial: false,
+                ip: String::new(),
+                battery: 0,
+                brightness: 0,
+                device_type: 3, // Right Eye device type
+            };
+            // 发送获取设备状态请求
+            if let Err(e) = stream_request_tx.send(StreamSettingRequest::GetDeviceStatus) {
+                error!("Failed to send get status request: {}", e);
+            }
+            let mut response_rx = stream_response_rx.lock().unwrap();
+            match response_rx.try_recv() {
+                Ok(StreamSettingResponse::DeviceStatus(status)) => {
+                    right_eye_status = StreamEvent::Status {
+                        serial: false,
+                        ip: status.wifi,
+                        battery: status.battery as u8,
+                        brightness: status.brightness as u8,
+                        device_type: 3, // Right Eye device type
+                    };
+                }
+                Err(TryRecvError::Disconnected) => {
+                    error!("Failed to receive data from disconnected face stream channel");
+                    break;
+                }
+                _ => {}
+            }
+            if let Err(e) = serial_req_tx.send(SerialRequest::GetStatus) {
+                error!("Failed to send get status request to ESP32: {}", e);
+            }
+            match serial_res_rx.lock().unwrap().try_recv() {
+                Ok(SerialResponse::Status((state, device))) => {
+                    if device == 3 {
+                        if let crate::serial::serial_msg::PortState::Connected = state {
+                            // 发送串口状态事件
+                            if let StreamEvent::Status { serial: _, ip, battery, brightness, device_type } = right_eye_status {
+                                right_eye_status = StreamEvent::Status {
+                                    serial: true,
+                                    ip,
+                                    battery,
+                                    brightness,
+                                    device_type,
+                                };
+                            }
+                            // 发送串口断开事件
+                            if let Err(e) = channel.send(StreamEvent::Log {
+                                message: "ESP32 Connected".to_string(),
+                            }) {
+                                error!("Failed to send disconnect event: {}", e);
+                            }
+                        } 
+                    }   
+                }
+                Err(TryRecvError::Disconnected) => {
+                    error!("Failed to receive data from disconnected serial channel");
+                }
+                _ => {}
+            }
+            // 发送状态事件
+            if let Err(e) = channel.send(right_eye_status) {
+                error!("Failed to send face stream status: {}", e);
+            }
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+    });
 }

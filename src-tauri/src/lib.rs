@@ -17,7 +17,10 @@ use integration::interface::{
     start_left_eye_image_stream,
     start_right_eye_image_stream,
     set_brightness,
-    set_rotation
+    set_rotation,
+    get_face_stream_status,
+    get_left_eye_stream_status,
+    get_right_eye_stream_status,
 };
 use integration::init::init_device;
 
@@ -53,6 +56,9 @@ pub fn run() {
             start_right_eye_image_stream,
             set_brightness,
             set_rotation,
+            get_face_stream_status,
+            get_left_eye_stream_status,
+            get_right_eye_stream_status,
             ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

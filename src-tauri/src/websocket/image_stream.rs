@@ -2,19 +2,19 @@ use std::{collections::VecDeque, sync::mpsc::TryRecvError, time::Instant};
 use crossbeam::channel::{Sender, Receiver};
 use opencv::{core::{Mat, MatTraitConst, Vector}, imgcodecs};
 use crate::{serial::serial_msg::SerialMessage, utils::consts::{DEVICE_TYPE_FACE, DEVICE_TYPE_LEFT_EYE, DEVICE_TYPE_RIGHT_EYE}};
-use super::image_msg::{DeviceStatus, Frame, ImageRequest, ImageResponse, ImageStreamRequest, PortState};
+use super::image_msg::{DeviceStatus, Frame, ImageRequest, ImageResponse, PortState, StreamSettingRequest, StreamSettingResponse};
 use url::Url;
 use tungstenite::{connect, Message, WebSocket};
 use base64::{Engine as _, engine::general_purpose};
 use ftlog::*;
-use crate::utils::roi::Roi;
 
 pub struct ImageStream {
     request_rx: Receiver<ImageRequest>,
     request_tx: Sender<ImageRequest>,
-    response_tx: bus::Bus<ImageResponse>,
-    settings_rx: Receiver<ImageStreamRequest>,
-    settings_tx: Sender<ImageStreamRequest>,
+    img_response_tx: bus::Bus<ImageResponse>,
+    setting_response_tx: bus::Bus<StreamSettingResponse>,
+    settings_rx: Receiver<StreamSettingRequest>,
+    settings_tx: Sender<StreamSettingRequest>,
     serial_msg_rx: bus::BusReader<SerialMessage>,
 
     device_type: i32,
@@ -29,12 +29,14 @@ pub struct ImageStream {
 impl ImageStream {
     pub fn new(serial_msg_rx: bus::BusReader<SerialMessage>, ip: String, device_type: i32) -> Self {
         let (request_tx, request_rx) = crossbeam::channel::unbounded();
-        let response_tx = bus::Bus::<ImageResponse>::new(1);
+        let img_response_tx = bus::Bus::<ImageResponse>::new(1);
         let (settings_tx, settings_rx) = crossbeam::channel::unbounded();
+        let setting_response_tx = bus::Bus::<StreamSettingResponse>::new(1);
         ImageStream {
             request_rx,
             request_tx,
-            response_tx,
+            img_response_tx,
+            setting_response_tx,
             settings_rx,
             settings_tx,
             serial_msg_rx,
@@ -42,7 +44,7 @@ impl ImageStream {
             port_state: PortState::Disconnected,
             ip,
             run: false,
-            device_status: DeviceStatus { battery: 0, brightness: 0 },
+            device_status: DeviceStatus { battery: 0, brightness: 0, wifi: String::new() },
             image_buffer: VecDeque::new(),
             rotate_angle: 0.0,
         }
@@ -53,10 +55,14 @@ impl ImageStream {
     }
 
     pub fn get_response_rx(&mut self) -> bus::BusReader<ImageResponse> {
-        self.response_tx.add_rx()
+        self.img_response_tx.add_rx()
     }
 
-    pub fn get_settings_tx(&self) -> Sender<ImageStreamRequest> {
+    pub fn get_setting_response_rx(&mut self) -> bus::BusReader<StreamSettingResponse> {
+        self.setting_response_tx.add_rx()
+    }
+
+    pub fn get_settings_tx(&self) -> Sender<StreamSettingRequest> {
         self.settings_tx.clone()
     }
 
@@ -67,10 +73,10 @@ impl ImageStream {
             match self.settings_rx.try_recv() {
                 Ok(request) => {
                     match request {
-                        ImageStreamRequest::GetDeviceStatus => {
+                        StreamSettingRequest::GetDeviceStatus => {
                             self.get_device_status();
                         }
-                        ImageStreamRequest::SetRotateAngle(angle) => {
+                        StreamSettingRequest::SetRotateAngle(angle) => {
                             self.rotate_angle = angle;
                             info!("Set rotate angle to: {}", angle);
                         }
@@ -107,6 +113,7 @@ impl ImageStream {
                 if self.run {
                     if self.connect(&mut port) {
                         info!("Stream {} Connected to: {}", self.device_type, self.ip);
+                        self.device_status.wifi = self.ip.clone();
                         self.port_state = PortState::Connected;
                     } else {
                         std::thread::sleep(std::time::Duration::from_secs(1));
@@ -307,7 +314,7 @@ impl ImageStream {
                     // 使用 base64 编码
                     let base64_string = general_purpose::STANDARD.encode(&vec_data);
                     // 广播 base64 响应
-                    self.response_tx.broadcast(ImageResponse::Base64ImageData(base64_string.into_bytes()));
+                    self.img_response_tx.broadcast(ImageResponse::Base64ImageData(base64_string.into_bytes()));
                 }
                 Err(e) => {
                     error!("Failed to encode image to JPEG: {}", e);
@@ -322,7 +329,7 @@ impl ImageStream {
         // Implement the logic to get image in OpenCV format
         // This is a placeholder implementation
         if let Some(frame) = self.image_buffer.front() {
-            self.response_tx.broadcast(ImageResponse::OpenCVImageData(frame.image.clone()));
+            self.img_response_tx.broadcast(ImageResponse::OpenCVImageData(frame.image.clone()));
         } else {
             debug!("No image available in buffer");
         }
@@ -331,7 +338,7 @@ impl ImageStream {
     fn get_device_status(&mut self) {
         // Implement the logic to get device status
         // This is a placeholder implementation
-        self.response_tx.broadcast(ImageResponse::DeviceStatus(self.device_status.clone()));
+        self.setting_response_tx.broadcast(StreamSettingResponse::DeviceStatus(self.device_status.clone()));
     }
 
 
