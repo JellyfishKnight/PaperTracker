@@ -10,11 +10,11 @@ export interface ImageEvent {
 export interface StatusEvent {
     type: 'status';
     data: {
-        wifi: string;
-        serial: string;
         ip: string;
+        serial: boolean;
         battery: number;
         brightness: number;
+        device_type: number; // 设备类型
     };
 }
 
@@ -43,10 +43,10 @@ export interface StatusMessage {
     type: 'status';
     data: {
         wifi?: string;
-        serial?: string;
-        ip?: string;
+        serial?: boolean;
         battery?: number;
         brightness?: number;
+        deviceType?: number;  // 设备类型
     };
 }
   

@@ -349,55 +349,10 @@ function showSerialLog(): void {
     });
 }
 
-// 处理接收到的消息
-function handleMessage(message: Message): void {
-  switch (message.type) {
-    case 'image':
-      handleImageMessage(message);
-      break;
-    case 'log':
-      appendLog(message.data);
-      break;
-    case 'status':
-      handleStatusMessage(message);
-      break;
-  }
-}
-
-function handleImageMessage(message: ImageMessage): void {
-  const imageDataUrl = `data:image/jpeg;base64,${message.data}`;
-  
-  if (message.device === 'calibration' || currentPage.value === 'calibration') {
-    calibrationImage.value = imageDataUrl;
-  } else {
-    cameraImage.value = imageDataUrl;
-  }
-}
-
-function handleStatusMessage(message: StatusMessage): void {
-  const { data } = message;
-  
-  if (data.wifi !== undefined) {
-    wifiStatus.value = data.wifi;
-  }
-  if (data.serial !== undefined) {
-    serialStatus.value = data.serial;
-  }
-  if (data.ip !== undefined) {
-    ipAddress.value = data.ip;
-  }
-  if (data.battery !== undefined) {
-    appendLog(`电池电量: ${data.battery}%`);
-  }
-  if (data.brightness !== undefined) {
-    brightness.value = data.brightness;
-  }
-}
-
 onMounted(() => {
-  const onEvent = new Channel<StreamEvent>();
+  const onImageOrLogEvent = new Channel<StreamEvent>();
   
-  onEvent.onmessage = (event: StreamEvent) => {
+  onImageOrLogEvent.onmessage = (event: StreamEvent) => {
     console.log("Received event:", event);
     
     switch (event.type) {
@@ -416,13 +371,29 @@ onMounted(() => {
     }
   };
 
-  invoke('start_face_image_stream', { onEvent })
+  invoke('start_face_image_stream', { onImageOrLogEvent })
     .then(() => {
       appendLog("图像流已启动");
     })
     .catch((error) => {
       appendLog(`启动图像流失败: ${error}`);
       messageService.error("启动图像流失败: " + error);
+    });
+
+  const onStatusEvent = new Channel<StatusMessage>();
+  onStatusEvent.onmessage = (event: StatusMessage) => {
+    wifiStatus.value = event.data.wifi?.length == 0 ? '面捕wifi未连接' : `面捕wifi已连接: ${event.data.wifi}`;
+    serialStatus.value = event.data.serial ? '面捕数据线已连接' : `面捕数据线未连接`;
+    appendLog('当前电量' + event.data.battery + '%' + ' 当前亮度' + event.data.brightness + '%');
+  };
+
+  invoke('start_face_status_stream', { onStatusEvent })
+    .then(() => {
+      appendLog("状态流已启动");
+    })
+    .catch((error) => {
+      appendLog(`启动状态流失败: ${error}`);
+      messageService.error("启动状态流失败: " + error);
     });
 });
 </script>
