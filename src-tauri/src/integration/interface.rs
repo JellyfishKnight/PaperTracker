@@ -335,9 +335,9 @@ pub fn set_rotation(
 }
 
 #[tauri::command]
-pub fn get_face_stream_status(
-    app: tauri::AppHandle<impl Runtime>,
-    channel: Channel<StreamEvent>
+pub fn get_face_stream_status<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    on_event: Channel<StreamEvent>
 ) {
     let state = app.state::<ImageStreamState>();
     let stream_request_tx = state.face_setting_req.clone();
@@ -377,11 +377,15 @@ pub fn get_face_stream_status(
             }
             if let Err(e) = serial_req_tx.send(SerialRequest::GetStatus) {
                 error!("Failed to send get status request to ESP32: {}", e);
+            } else {
+                info!("Sent get status request to ESP32");
             }
             match serial_res_rx.lock().unwrap().try_recv() {
                 Ok(SerialResponse::Status((state, device))) => {
+                    info!("Received serial status: {:?}, device: {}", state, device);
                     if device == 1 {
                         if let crate::serial::serial_msg::PortState::Connected = state {
+                            info!("ESP32 is connected");
                             // 发送串口状态事件
                             if let StreamEvent::Status { serial: _, ip, battery, brightness, device_type } = face_status {
                                 face_status = StreamEvent::Status {
@@ -393,7 +397,7 @@ pub fn get_face_stream_status(
                                 };
                             }
                             // 发送串口断开事件
-                            if let Err(e) = channel.send(StreamEvent::Log {
+                            if let Err(e) = on_event.send(StreamEvent::Log {
                                 message: "ESP32 Connected".to_string(),
                             }) {
                                 error!("Failed to send disconnect event: {}", e);
@@ -407,7 +411,7 @@ pub fn get_face_stream_status(
                 _ => {}
             }
             // 发送状态事件
-            if let Err(e) = channel.send(face_status) {
+            if let Err(e) = on_event.send(face_status) {
                 error!("Failed to send face stream status: {}", e);
             }
             std::thread::sleep(std::time::Duration::from_secs(1));

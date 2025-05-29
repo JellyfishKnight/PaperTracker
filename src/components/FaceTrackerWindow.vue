@@ -353,8 +353,6 @@ onMounted(() => {
   const onImageOrLogEvent = new Channel<StreamEvent>();
   
   onImageOrLogEvent.onmessage = (event: StreamEvent) => {
-    console.log("Received event:", event);
-    
     switch (event.type) {
       case 'image':
         const imageDataUrl = `data:image/jpeg;base64,${event.data.base64}`;
@@ -371,7 +369,7 @@ onMounted(() => {
     }
   };
 
-  invoke('start_face_image_stream', { onImageOrLogEvent })
+  invoke('start_face_image_stream', { onEvent: onImageOrLogEvent })
     .then(() => {
       appendLog("图像流已启动");
     })
@@ -380,14 +378,22 @@ onMounted(() => {
       messageService.error("启动图像流失败: " + error);
     });
 
-  const onStatusEvent = new Channel<StatusMessage>();
-  onStatusEvent.onmessage = (event: StatusMessage) => {
-    wifiStatus.value = event.data.wifi?.length == 0 ? '面捕wifi未连接' : `面捕wifi已连接: ${event.data.wifi}`;
-    serialStatus.value = event.data.serial ? '面捕数据线已连接' : `面捕数据线未连接`;
-    appendLog('当前电量' + event.data.battery + '%' + ' 当前亮度' + event.data.brightness + '%');
+  const onStatusEvent = new Channel<StreamEvent>();
+  onStatusEvent.onmessage = (event: StreamEvent) => {
+    switch (event.type) {
+      case 'status':
+        wifiStatus.value = event.data.ip.length == 0 ? '面捕wifi未连接' : `面捕wifi已连接`;
+        serialStatus.value = event.data.serial ? '面捕数据线已连接' : `面捕数据线未连接`;
+        appendLog('当前电量' + event.data.battery + '%' + ' 当前亮度' + event.data.brightness + '%');
+        ipAddress.value = event.data.ip || '未获取到IP地址';
+        break;
+      case 'log':
+        appendLog(event.data.message);
+        break;
+    }
   };
 
-  invoke('start_face_status_stream', { onStatusEvent })
+  invoke('get_face_stream_status', { onEvent: onStatusEvent })
     .then(() => {
       appendLog("状态流已启动");
     })
