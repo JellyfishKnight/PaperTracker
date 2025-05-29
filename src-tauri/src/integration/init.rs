@@ -29,7 +29,7 @@ pub struct SerialState {
 
 pub fn init_device<R: Runtime>(app: &AppHandle<R>) {
     // init serial
-    let mut serial = crate::serial::esp32_serial::Esp32Serial::new();
+    let mut serial = crate::serial::esp32_serial::Esp32Serial::new(app.clone());
     let global_req_tx = serial.get_request_tx();
     let global_write_tx = serial.get_write_tx();
     let global_resp_rx = serial.get_response_rx();
@@ -83,7 +83,7 @@ pub fn init_device<R: Runtime>(app: &AppHandle<R>) {
     std::thread::spawn(move || {
         right_eye_image_stream.start();
     });
-    
+
     // start serial
     std::thread::spawn(move || {
         serial.start();

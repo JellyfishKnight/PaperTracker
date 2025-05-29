@@ -3,10 +3,13 @@ use crossbeam::channel::{Sender, Receiver};
 use ftlog::*;
 use regex::Regex;
 use serialport::SerialPort;
+use crate::integration::interface::StreamEvent;
+
 use super::{esp32_control::{find_esp32_port, flash_esp32, restart_esp32}, serial_msg::{DeviceStatus, PortState, SerialMessage, SerialRequest, SerialResponse, SerialSendPacket, WifiError}};
+use tauri::{AppHandle, Emitter, EventTarget, Runtime};
 
 
-pub struct Esp32Serial {
+pub struct Esp32Serial<R: Runtime> {
     // Channel for receiving requests
     request_rx: Receiver<SerialRequest>,
     // Channel for sending requests
@@ -26,11 +29,13 @@ pub struct Esp32Serial {
     // 
     serial_info: (String, i32),
     // 
-    run: bool
+    run: bool,
+    // 
+    app_handle: AppHandle<R>,
 }
 
-impl Esp32Serial {
-    pub fn new() -> Self {
+impl<R: Runtime> Esp32Serial<R> {
+    pub fn new(app: AppHandle<R>) -> Self {
         let (request_tx, request_rx) = crossbeam::channel::unbounded();
         let response_tx = bus::Bus::new(1);
         let message_tx = bus::Bus::new(1);
@@ -45,7 +50,8 @@ impl Esp32Serial {
             port_state: PortState::Disconnected,
             last_message: HashMap::new(),
             serial_info: ("".to_string(), 0),
-            run: false
+            run: false,
+            app_handle: app,
         }
     }
     
@@ -69,9 +75,39 @@ impl Esp32Serial {
         let mut port : Option<Box<dyn SerialPort + 'static>> = None;
         self.run = true;
         loop {
+            // Check if the port state has changed
+            if let PortState::Disconnected = self.port_state {
+                info!("Port is disconnected, attempting to connect...");
+                if let Err(e) = self.app_handle.emit("face_serial_status", "面捕设备未连接") {
+                    error!("Failed to emit serial status event: {}", e);
+                }
+                if let Err(e) = self.app_handle.emit("left_eye_serial_status", "左眼设备未连接") {
+                    error!("Failed to emit serial status event: {}", e);
+                }
+                if let Err(e) = self.app_handle.emit("right_eye_serial_status", "右眼设备未连接") {
+                    error!("Failed to emit serial status event: {}", e);
+                }    
+            } 
+            if let PortState::Connected = self.port_state {
+                if let Some(SerialMessage::DeviceStatus(message)) = self.last_message.get(&5) {
+                    match message.device_type {
+                        1 => {
+                            let _ = self.app_handle.emit("face_serial_status", "面捕设备已连接");
+                        }
+                        2 => {
+                            let _ = self.app_handle.emit("left_eye_serial_status", "左眼设备已连接");
+                        }
+                        3 => {
+                            let _ = self.app_handle.emit("right_eye_serial_status", "右眼设备已连接");
+                        }
+                        _ => ()
+                    }
+                }
+            }
             // Check for incoming requests
             match self.request_rx.try_recv() {
                 Ok(request) => {
+                    info!("Received request: {:?}", request);
                     self.handle_request(request, &mut port);
                 }
                 Err(crossbeam::channel::TryRecvError::Disconnected) => {
@@ -142,7 +178,7 @@ impl Esp32Serial {
         }
         // Open the serial port
         *port = match serialport::new(&self.serial_info.0, 115200)
-            .timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(1))
             .open() {
                 Ok(port) => {
                     info!("Serial port opened successfully");
@@ -279,7 +315,7 @@ impl Esp32Serial {
         match packet_type {
             '1' => {
                 if Regex::new(r"^A1(01)B1$").unwrap().is_match(packet) {
-                    self.message_tx.broadcast(
+                    let _ = self.message_tx.try_broadcast(
                         SerialMessage::GeneralMessage(
                             "Wifi Setup packet received".to_string(),
                         )
@@ -295,7 +331,7 @@ impl Esp32Serial {
                 if let Some(caps) = re.captures(packet) {
                     let ssid = caps.get(1).unwrap().as_str().to_string();
                     let pwd = caps.get(2).unwrap().as_str().to_string();
-                    self.message_tx.broadcast(
+                    let _ = self.message_tx.try_broadcast(
                         SerialMessage::GeneralMessage(format!("WiFi config packet received: SSID = {}, PWD = {}", ssid, pwd))
                     );
                     *self.last_message.entry(2).or_insert(SerialMessage::GeneralMessage(format!("WiFi config packet received: SSID = {}, PWD = {}", ssid, pwd))) = 
@@ -304,7 +340,7 @@ impl Esp32Serial {
             }
             '3' => {
                 if Regex::new(r"^A303B3$").unwrap().is_match(packet) {
-                    self.message_tx.broadcast(
+                    let _ = self.message_tx.try_broadcast(
                         SerialMessage::GeneralMessage(
                             "WiFi confirm packet received".to_string(),
                         )
@@ -321,7 +357,7 @@ impl Esp32Serial {
                     let ssid = caps.get(1).unwrap().as_str().to_string();
                     let pwd = caps.get(2).unwrap().as_str().to_string();
                     // Send WiFi error event
-                    self.message_tx.broadcast(
+                    let _ = self.message_tx.try_broadcast(
                         SerialMessage::WifiError(WifiError {
                             ssid: ssid.clone(),
                             password: pwd.clone(),
@@ -350,7 +386,7 @@ impl Esp32Serial {
                         .collect::<Vec<_>>();
                     let ip = ip_parts.join(".");
                     self.serial_info.1 = version;
-                    self.message_tx.broadcast(
+                    let _ = self.message_tx.try_broadcast(
                         SerialMessage::DeviceStatus(
                             DeviceStatus {
                                 ip: ip.clone(),
@@ -382,7 +418,7 @@ impl Esp32Serial {
                 let re = Regex::new(r"^A6(\d{1,3})B6$").unwrap();
                 if let Some(caps) = re.captures(packet) {
                     let brightness = caps.get(1).unwrap().as_str().parse::<u32>().unwrap_or(0);
-                    self.message_tx.broadcast(
+                    let _ = self.message_tx.try_broadcast(
                         SerialMessage::GeneralMessage(format!("Brightness set to: {}", brightness))
                     );
                     *self.last_message.entry(6).or_insert(SerialMessage::GeneralMessage(format!("Brightness set to: {}", brightness))) = 
@@ -391,7 +427,7 @@ impl Esp32Serial {
             }
             _ => {
                 // Unknown packet type
-                debug!("Unknown packet type: {}", packet_type);
+                info!("Unknown packet type: {}", packet_type);
             }
         }
     }

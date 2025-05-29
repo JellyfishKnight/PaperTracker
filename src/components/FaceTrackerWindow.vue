@@ -167,6 +167,7 @@ import deviceService from '../functional/deviceService';
 import messageService from '../functional/pop_window/messageService';
 import { invoke, Channel } from '@tauri-apps/api/core';
 import { StreamEvent, ImageMessage, Message, StatusMessage } from '../functional/message';
+import { listen } from '@tauri-apps/api/event';
 
 type PageType = 'main' | 'calibration';
 type EnergyMode = 'normal' | 'eco' | 'performance';
@@ -378,29 +379,9 @@ onMounted(() => {
       messageService.error("启动图像流失败: " + error);
     });
 
-  const onStatusEvent = new Channel<StreamEvent>();
-  onStatusEvent.onmessage = (event: StreamEvent) => {
-    switch (event.type) {
-      case 'status':
-        wifiStatus.value = event.data.ip.length == 0 ? '面捕wifi未连接' : `面捕wifi已连接`;
-        serialStatus.value = event.data.serial ? '面捕数据线已连接' : `面捕数据线未连接`;
-        appendLog('当前电量' + event.data.battery + '%' + ' 当前亮度' + event.data.brightness + '%');
-        ipAddress.value = event.data.ip || '未获取到IP地址';
-        break;
-      case 'log':
-        appendLog(event.data.message);
-        break;
-    }
-  };
-
-  invoke('get_face_stream_status', { onEvent: onStatusEvent })
-    .then(() => {
-      appendLog("状态流已启动");
-    })
-    .catch((error) => {
-      appendLog(`启动状态流失败: ${error}`);
-      messageService.error("启动状态流失败: " + error);
-    });
+  listen<string>('face_serial_status', (event) => {
+      serialStatus.value = event.payload.toString();
+  });
 });
 </script>
 
