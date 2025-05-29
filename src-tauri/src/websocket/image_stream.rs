@@ -1,6 +1,7 @@
 use std::{collections::VecDeque, sync::mpsc::TryRecvError, time::Instant};
 use crossbeam::channel::{Sender, Receiver};
 use opencv::{core::{Mat, MatTraitConst, Vector}, imgcodecs};
+use tauri::{App, AppHandle, Emitter, Runtime};
 use crate::{serial::serial_msg::SerialMessage, utils::consts::{DEVICE_TYPE_FACE, DEVICE_TYPE_LEFT_EYE, DEVICE_TYPE_RIGHT_EYE}};
 use super::image_msg::{DeviceStatus, Frame, ImageRequest, ImageResponse, PortState, StreamSettingRequest, StreamSettingResponse};
 use url::Url;
@@ -8,7 +9,7 @@ use tungstenite::{connect, Message, WebSocket};
 use base64::{Engine as _, engine::general_purpose};
 use ftlog::*;
 
-pub struct ImageStream {
+pub struct ImageStream<R: Runtime> {
     request_rx: Receiver<ImageRequest>,
     request_tx: Sender<ImageRequest>,
     img_response_tx: bus::Bus<ImageResponse>,
@@ -24,10 +25,12 @@ pub struct ImageStream {
     device_status: DeviceStatus,
     image_buffer: VecDeque<Frame>,
     rotate_angle: f64,
+
+    app_handle: AppHandle<R>,
 }
 
-impl ImageStream {
-    pub fn new(serial_msg_rx: bus::BusReader<SerialMessage>, ip: String, device_type: i32) -> Self {
+impl<R: Runtime> ImageStream<R> {
+    pub fn new(serial_msg_rx: bus::BusReader<SerialMessage>, ip: String, device_type: i32, app: AppHandle<R>) -> Self {
         let (request_tx, request_rx) = crossbeam::channel::unbounded();
         let img_response_tx = bus::Bus::<ImageResponse>::new(1);
         let (settings_tx, settings_rx) = crossbeam::channel::unbounded();
@@ -47,6 +50,7 @@ impl ImageStream {
             device_status: DeviceStatus { battery: 0, brightness: 0, wifi: String::new() },
             image_buffer: VecDeque::new(),
             rotate_angle: 0.0,
+            app_handle: app
         }
     }
 
@@ -70,6 +74,36 @@ impl ImageStream {
         let mut port: Option<WebSocket<tungstenite::stream::MaybeTlsStream<std::net::TcpStream>>> = None;
         self.run = true;
         loop {
+            if let PortState::Connected = self.port_state {
+                match self.device_type {
+                    DEVICE_TYPE_FACE => {
+                        info!("设备: {}, 已连接", self.device_type);
+                        let _ = self.app_handle.emit("face_image_stream_status", "面捕WIFI已连接");
+                    }
+                    DEVICE_TYPE_LEFT_EYE => {
+                        let _ = self.app_handle.emit("left_eye_image_stream_status", "左眼WIFI已连接");
+                    }
+                    DEVICE_TYPE_RIGHT_EYE => {
+                        let _ = self.app_handle.emit("right_eye_image_stream_status", "右眼WIFI已连接");
+                    }
+                    _ => ()
+                }
+            }
+            if let PortState::Disconnected = self.port_state {
+                info!("设备: {}, 未连接", self.device_type);
+                match self.device_type {
+                    DEVICE_TYPE_FACE => {
+                        let _ = self.app_handle.emit("face_image_stream_status", "面捕WIFI未连接");
+                    }
+                    DEVICE_TYPE_LEFT_EYE => {
+                        let _ = self.app_handle.emit("left_eye_image_stream_status", "左眼WIFI未连接");
+                    }
+                    DEVICE_TYPE_RIGHT_EYE => {
+                        let _ = self.app_handle.emit("right_eye_image_stream_status", "右眼WIFI未连接");
+                    }
+                    _ => ()
+                }
+            }
             match self.settings_rx.try_recv() {
                 Ok(request) => {
                     match request {

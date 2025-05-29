@@ -47,7 +47,8 @@ pub fn init_device<R: Runtime>(app: &AppHandle<R>) {
     let mut face_image_stream = crate::websocket::image_stream::ImageStream::new(
         face_image_msg_rx, 
         FACE_CONFIG.functional.wifi_ip.clone(), 
-        DEVICE_TYPE_FACE);
+        DEVICE_TYPE_FACE,
+        app.clone());
     let face_image_stream_request_tx = face_image_stream.get_request_tx();
     let face_image_stream_response_rx = face_image_stream.get_response_rx();
     let face_setting_request_tx = face_image_stream.get_settings_tx();
@@ -61,7 +62,8 @@ pub fn init_device<R: Runtime>(app: &AppHandle<R>) {
     let mut left_eye_image_stream = crate::websocket::image_stream::ImageStream::new(
         left_eye_image_msg_rx, 
         EYE_CONFIG.functional.left_ip.clone(),
-        DEVICE_TYPE_LEFT_EYE);
+        DEVICE_TYPE_LEFT_EYE,
+        app.clone());
     let left_eye_image_stream_request_tx = left_eye_image_stream.get_request_tx();
     let left_eye_image_stream_response_rx = left_eye_image_stream.get_response_rx();
     let left_eye_setting_request_tx = left_eye_image_stream.get_settings_tx();
@@ -75,7 +77,8 @@ pub fn init_device<R: Runtime>(app: &AppHandle<R>) {
     let mut right_eye_image_stream = crate::websocket::image_stream::ImageStream::new(
         right_eye_image_msg_rx, 
         EYE_CONFIG.functional.right_ip.clone(),
-        DEVICE_TYPE_RIGHT_EYE);
+        DEVICE_TYPE_RIGHT_EYE,
+        app.clone());
     let right_eye_image_stream_request_tx = right_eye_image_stream.get_request_tx();
     let right_eye_image_stream_response_rx = right_eye_image_stream.get_response_rx();
     let right_eye_setting_request_tx = right_eye_image_stream.get_settings_tx();

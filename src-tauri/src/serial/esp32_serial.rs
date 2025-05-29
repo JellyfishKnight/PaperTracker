@@ -3,7 +3,7 @@ use crossbeam::channel::{Sender, Receiver};
 use ftlog::*;
 use regex::Regex;
 use serialport::SerialPort;
-use crate::integration::interface::StreamEvent;
+use crate::{integration::interface::StreamEvent, utils::consts::{DEVICE_TYPE_FACE, DEVICE_TYPE_LEFT_EYE, DEVICE_TYPE_RIGHT_EYE}};
 
 use super::{esp32_control::{find_esp32_port, flash_esp32, restart_esp32}, serial_msg::{DeviceStatus, PortState, SerialMessage, SerialRequest, SerialResponse, SerialSendPacket, WifiError}};
 use tauri::{AppHandle, Emitter, EventTarget, Runtime};
@@ -77,7 +77,6 @@ impl<R: Runtime> Esp32Serial<R> {
         loop {
             // Check if the port state has changed
             if let PortState::Disconnected = self.port_state {
-                info!("Port is disconnected, attempting to connect...");
                 if let Err(e) = self.app_handle.emit("face_serial_status", "面捕设备未连接") {
                     error!("Failed to emit serial status event: {}", e);
                 }
@@ -91,13 +90,13 @@ impl<R: Runtime> Esp32Serial<R> {
             if let PortState::Connected = self.port_state {
                 if let Some(SerialMessage::DeviceStatus(message)) = self.last_message.get(&5) {
                     match message.device_type {
-                        1 => {
+                        DEVICE_TYPE_FACE => {
                             let _ = self.app_handle.emit("face_serial_status", "面捕设备已连接");
                         }
-                        2 => {
+                        DEVICE_TYPE_LEFT_EYE => {
                             let _ = self.app_handle.emit("left_eye_serial_status", "左眼设备已连接");
                         }
-                        3 => {
+                        DEVICE_TYPE_RIGHT_EYE => {
                             let _ = self.app_handle.emit("right_eye_serial_status", "右眼设备已连接");
                         }
                         _ => ()

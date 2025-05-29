@@ -380,8 +380,12 @@ onMounted(() => {
     });
 
   listen<string>('face_serial_status', (event) => {
-      serialStatus.value = event.payload.toString();
+      serialStatus.value = event.payload;
   });
+
+  listen<string>('face_image_stream_status', (event) => {
+      wifiStatus.value = event.payload;
+  }) 
 });
 </script>
 
