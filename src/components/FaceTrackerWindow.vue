@@ -385,7 +385,11 @@ onMounted(() => {
 
   listen<string>('face_image_stream_status', (event) => {
       wifiStatus.value = event.payload;
-  }) 
+  });
+
+  listen<string>('face_ip', (event) => {
+      ipAddress.value = event.payload;
+  });
 });
 </script>
 

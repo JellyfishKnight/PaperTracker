@@ -77,7 +77,6 @@ impl<R: Runtime> ImageStream<R> {
             if let PortState::Connected = self.port_state {
                 match self.device_type {
                     DEVICE_TYPE_FACE => {
-                        info!("设备: {}, 已连接", self.device_type);
                         let _ = self.app_handle.emit("face_image_stream_status", "面捕WIFI已连接");
                     }
                     DEVICE_TYPE_LEFT_EYE => {
@@ -90,7 +89,6 @@ impl<R: Runtime> ImageStream<R> {
                 }
             }
             if let PortState::Disconnected = self.port_state {
-                info!("设备: {}, 未连接", self.device_type);
                 match self.device_type {
                     DEVICE_TYPE_FACE => {
                         let _ = self.app_handle.emit("face_image_stream_status", "面捕WIFI未连接");
@@ -147,6 +145,7 @@ impl<R: Runtime> ImageStream<R> {
                 if self.run {
                     if self.connect(&mut port) {
                         info!("Stream {} Connected to: {}", self.device_type, self.ip);
+                        let _ = self.app_handle.emit("face_ip", self.ip.as_str());
                         self.device_status.wifi = self.ip.clone();
                         self.port_state = PortState::Connected;
                     } else {
