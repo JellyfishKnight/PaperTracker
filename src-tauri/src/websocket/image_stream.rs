@@ -145,7 +145,18 @@ impl<R: Runtime> ImageStream<R> {
                 if self.run {
                     if self.connect(&mut port) {
                         info!("Stream {} Connected to: {}", self.device_type, self.ip);
-                        let _ = self.app_handle.emit("face_ip", self.ip.as_str());
+                        match self.device_type {
+                            DEVICE_TYPE_FACE => {
+                                let _ = self.app_handle.emit("face_ip", self.ip.as_str());
+                            }
+                            DEVICE_TYPE_LEFT_EYE => {
+                                let _ = self.app_handle.emit("left_eye_ip", self.ip.as_str());
+                            }
+                            DEVICE_TYPE_RIGHT_EYE => {
+                                let _ = self.app_handle.emit("right_eye_ip", self.ip.as_str());
+                            }
+                            _ => ()
+                        }
                         self.device_status.wifi = self.ip.clone();
                         self.port_state = PortState::Connected;
                     } else {
