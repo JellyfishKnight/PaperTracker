@@ -61,10 +61,10 @@ pub async fn restart_esp32<R: Runtime>(app: tauri::AppHandle<R>) -> Result<(), S
                 }
                 break;
             }
-            Ok(_) => {}
-            Err(e) => {
-                return Err(format!("Failed to receive response from ESP32: {}", e));
+            Err(TryRecvError::Disconnected) => {
+                return Err(format!("Failed to receive response from ESP32"));
             }
+            _ => ()
         }
         // 检查是否超过5秒
         if start_restart_time.elapsed().as_secs() > 5 {
@@ -134,7 +134,8 @@ pub async fn flash_esp32<R: Runtime>(app: tauri::AppHandle<R>, device_type: i32)
 
 #[tauri::command]
 pub async fn write_wifi_info<R: Runtime>(app: tauri::AppHandle<R>, ssid: String, password: String) -> Result<(), String> {
-    let write_tx = app.state::<Sender<SerialSendPacket>>().clone();
+    let state = app.state::<SerialState>().clone();
+    let write_tx = state.global_write_tx.clone();
     if let Err(e) = write_tx.send(SerialSendPacket::WifiConfig(WifiConfig {
         ssid,
         password,
@@ -316,10 +317,12 @@ pub fn set_brightness(
     app: tauri::AppHandle<impl Runtime>, 
     brightness: u8
 ) -> Result<(), String> {
-    let write_tx = app.state::<Sender<SerialSendPacket>>().clone();
+    let state = app.state::<SerialState>();
+    let write_tx = state.global_write_tx.clone();
     if let Err(e) = write_tx.send(SerialSendPacket::Brightness(brightness as i32)) {
         return Err(format!("Failed to send brightness request to ESP32: {}", e));
     }
+    info!("Brightness set to {}", brightness);
     Ok(())
 }
 
@@ -340,6 +343,5 @@ pub fn set_rotation(
     if let Err(e) = send_tx.send(StreamSettingRequest::SetRotateAngle(rotation)) {
         return Err(format!("Failed to send rotation request: {}", e));
     }
-    info!("Rotation set to {} for device type {}", rotation, device_type);
     Ok(())
 }

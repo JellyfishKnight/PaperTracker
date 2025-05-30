@@ -194,6 +194,7 @@ impl<R: Runtime> Esp32Serial<R> {
     fn handle_write_message(&mut self, message: SerialSendPacket, port: &mut Option<Box<dyn SerialPort + 'static>>) {
         match message {
             SerialSendPacket::Brightness(brightness) => {
+                info!("Setting brightness to: {}", brightness);
                 let packet = format!("A6{}B6", brightness);
                 if let Some(ref mut port) = port {
                     if let Err(e) = port.write(packet.as_bytes()) {
