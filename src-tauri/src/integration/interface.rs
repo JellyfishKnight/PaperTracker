@@ -62,12 +62,12 @@ pub async fn restart_esp32<R: Runtime>(app: tauri::AppHandle<R>) -> Result<(), S
                 break;
             }
             Err(TryRecvError::Disconnected) => {
-                return Err(format!("Failed to receive response from ESP32"));
+                return Err("Failed to receive response from disconnected channel".to_string());
             }
             _ => ()
         }
         // 检查是否超过5秒
-        if start_restart_time.elapsed().as_secs() > 5 {
+        if start_restart_time.elapsed().as_secs() > 10 {
             return Err("ESP32设备未响应，请检查连接".to_string());
         }
     }
@@ -155,8 +155,8 @@ pub enum StreamEvent {
     Status {
         serial: bool,
         ip: String,
-        battery: u8,
-        brightness: u8,
+        battery: f32,
+        brightness: i32,
         device_type: i32,
     },
     Log {

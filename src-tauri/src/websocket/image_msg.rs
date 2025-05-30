@@ -10,10 +10,8 @@ pub enum PortState {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeviceStatus {
-    pub battery: i32,
+    pub battery: f32,
     pub brightness: i32,
-    pub wifi: String,
-    
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

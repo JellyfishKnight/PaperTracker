@@ -378,7 +378,7 @@ impl<R: Runtime> Esp32Serial<R> {
                 if let Some(caps) = re.captures(packet) {
                     let brightness = caps.get(1).unwrap().as_str().parse::<i32>().unwrap_or(0);
                     let raw_ip = caps.get(2).unwrap().as_str();
-                    let power = caps.get(3).unwrap().as_str().parse::<i32>().unwrap_or(0);
+                    let power = caps.get(3).unwrap().as_str().parse::<f32>().unwrap_or(0.0);
                     let version = caps.get(4).unwrap().as_str().parse::<i32>().unwrap_or(0);
                     let padded_ip = format!("{:0>12}", raw_ip);
                     let ip_parts = (0..4)

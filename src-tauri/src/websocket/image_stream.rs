@@ -47,7 +47,7 @@ impl<R: Runtime> ImageStream<R> {
             port_state: PortState::Disconnected,
             ip,
             run: false,
-            device_status: DeviceStatus { battery: 0, brightness: 0, wifi: String::new() },
+            device_status: DeviceStatus { battery: 0.0, brightness: 0 },
             image_buffer: VecDeque::new(),
             rotate_angle: 0.0,
             app_handle: app
@@ -157,7 +157,6 @@ impl<R: Runtime> ImageStream<R> {
                             }
                             _ => ()
                         }
-                        self.device_status.wifi = self.ip.clone();
                         self.port_state = PortState::Connected;
                     } else {
                         std::thread::sleep(std::time::Duration::from_secs(1));

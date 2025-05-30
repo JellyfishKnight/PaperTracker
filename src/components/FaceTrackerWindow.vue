@@ -261,21 +261,23 @@ function appendLog(message: string): void {
 
 // 亮度处理函数
 function handleBrightnessRealTimeUpdate(value: number): void {
-  // 实时更新过程中的处理（可选）
-  console.log(`实时更新亮度: ${Math.round(value)}%`);
-}
-
-function handleBrightnessChange(value: number): void {
   appendLog(`亮度调整为: ${Math.round(value)}%`);
   invoke('set_brightness', { brightness: Math.round(value) })
     .catch((error) => {
       appendLog(`亮度调整失败: ${error}`);
     });
+
+}
+
+function handleBrightnessChange(value: number): void {
+  // 实时更新过程中的处理（可选）
+  console.log(`实时更新亮度: ${Math.round(value)}%`);
 }
 
 // 旋转角度处理函数
 function handleRotationRealTimeUpdate(value: number): void {
   // 实时更新，提供连续旋转效果
+  appendLog(`旋转角度调整为: ${Math.round(value)}°`);
   invoke('set_rotation', { rotation: value, deviceType: 1 })
     .catch((error) => {
       console.error(`实时旋转角度调整失败: ${error}`);
@@ -283,7 +285,6 @@ function handleRotationRealTimeUpdate(value: number): void {
 }
 
 function handleRotationChange(value: number): void {
-  appendLog(`旋转角度调整为: ${Math.round(value)}°`);
   // 最终确认更新在实时更新中已经处理，这里可以添加额外的逻辑
 }
 

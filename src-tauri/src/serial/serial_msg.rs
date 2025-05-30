@@ -48,7 +48,7 @@ pub enum SerialResponse {
 pub struct DeviceStatus {
     pub ip: String,
     pub brightness: i32,
-    pub power: i32,
+    pub power: f32,
     pub device_type: i32,
 }
 
