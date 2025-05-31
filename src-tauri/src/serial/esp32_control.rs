@@ -48,27 +48,31 @@ pub fn flash_esp32(tool_path: String, boot_loader_path: String, partition_path: 
     std::io::Result::Ok(())
 }
 
-pub fn find_esp32_port() -> Option<String> {
-    #[cfg(target_os = "macos")]
-    {
-        let ports = match serialport::available_ports() {
-            Ok(ports) => ports,
-            Err(_) => return None,
-        };
-        for port in ports {
-            if let serialport::SerialPortType::UsbPort(usb_info) = port.port_type {
-                // Filter by the specific VID:PID of the ESP32 device
-                if usb_info.vid == 0x303a && usb_info.pid == 0x1001 {
-                    return Some(port.port_name);
-                }
+pub fn find_esp32_port() -> Option<String> {    
+    let ports = match serialport::available_ports() {
+        Ok(ports) => ports,
+        Err(_) => return None,
+    };
+    // ESP32-S3的USB VID和PID
+    const ESP32_S3_VID: u16 = 0x303A;  // Espressif Systems
+    const ESP32_S3_PID: u16 = 0x1001;  // ESP32-S3
+
+    // 查找匹配的设备
+    for port in ports {
+        if let serialport::SerialPortType::UsbPort(usb_info) = &port.port_type {
+            debug!(
+                "检查USB设备 {}: VID={:04X}, PID={:04X}",
+                port.port_name,
+                usb_info.vid,
+                usb_info.pid
+            );
+
+            // 检查VID和PID是否匹配ESP32-S3
+            if usb_info.vid == ESP32_S3_VID && usb_info.pid == ESP32_S3_PID {
+                info!("找到ESP32-S3设备的COM端口: {}", port.port_name);
+                return Some(port.port_name);
             }
         }
-    }
-    
-    #[cfg(target_os = "windows")]
-    {
-        // Windows implementation would go here
-        // For now, just return None
     }
     
     None

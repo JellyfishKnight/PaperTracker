@@ -174,6 +174,7 @@ impl<R: Runtime> Esp32Serial<R> {
             info!("ESP32 device found at port: {}", self.serial_info.0);
         } else {
             info!("No ESP32 device found");
+            return false;
         }
         // Open the serial port
         *port = match serialport::new(&self.serial_info.0, 115200)
