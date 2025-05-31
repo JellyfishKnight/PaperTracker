@@ -8,6 +8,7 @@ use ftlog::*;
 use super::init::{ImageStreamState, SerialState};
 
 
+
 #[tauri::command]
 pub async fn restart_esp32<R: Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
     let state = app.state::<SerialState>();
@@ -39,17 +40,35 @@ pub async fn restart_esp32<R: Runtime>(app: tauri::AppHandle<R>) -> Result<(), S
             return Err("ESP32设备未响应，请检查连接".to_string());
         }
     }
-    match app.path().resolve("assets/esptool", tauri::path::BaseDirectory::Resource) {
-        Ok(tool_path) => {
-            let tool_path = tool_path.to_str().unwrap().to_string();
-            if let Err(e) = request_tx.send(SerialRequest::Restart(tool_path)) {
-                return Err(format!("Failed to send restart request to ESP32: {}", e));
+    #[cfg(target_os = "macos")]
+    {
+        match app.path().resolve("assets/esptool", tauri::path::BaseDirectory::Resource) {
+            Ok(tool_path) => {
+                let tool_path = tool_path.to_str().unwrap().to_string();
+                if let Err(e) = request_tx.send(SerialRequest::Restart(tool_path)) {
+                    return Err(format!("Failed to send restart request to ESP32: {}", e));
+                }
+            }
+            Err(_) => {
+                return Err("软件不完整，请重新安装".to_string());
             }
         }
-        Err(_) => {
-            return Err("软件不完整，请重新安装".to_string());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        match app.path().resolve("assets/esptool.exe", tauri::path::BaseDirectory::Resource) {
+            Ok(tool_path) => {
+                let tool_path = crate::utils::platform::normalize_windows_path(tool_path.to_str().unwrap()).to_string();
+                if let Err(e) = request_tx.send(SerialRequest::Restart(tool_path)) {
+                    return Err(format!("Failed to send restart request to ESP32: {}", e));
+                }
+            }
+            Err(_) => {
+                return Err("软件不完整，请重新安装".to_string());
+            }
         }
     }
+
     let start_restart_time = std::time::Instant::now();
     loop {
         match response_rx.try_recv() {
@@ -100,7 +119,10 @@ pub async fn flash_esp32<R: Runtime>(app: tauri::AppHandle<R>, device_type: i32)
             }
         }
     }
+    #[cfg(target_os = "macos")]
     let tool_path = app.path().resolve("assets/esptool", tauri::path::BaseDirectory::Resource);
+    #[cfg(target_os = "windows")]
+    let tool_path = app.path().resolve("assets/esptool.exe", tauri::path::BaseDirectory::Resource);
     if tool_path.is_err() {
         return Err("Failed to resolve tool path".to_string());
     }
@@ -122,7 +144,10 @@ pub async fn flash_esp32<R: Runtime>(app: tauri::AppHandle<R>, device_type: i32)
         return Err("Failed to resolve firmware path".to_string());
     }
     if let Err(e) = request_tx.send(SerialRequest::Flash(FlashCommand {
+        #[cfg(target_os = "macos")]
         tool_path: tool_path.unwrap().to_str().unwrap().to_string(),
+        #[cfg(target_os = "windows")]
+        tool_path: crate::utils::platform::normalize_windows_path(tool_path.unwrap().as_path().to_str().unwrap()).to_string(),
         boot_loader_path: bootloader_path.unwrap().to_str().unwrap().to_string(),
         partition_path: partition_path.unwrap().to_str().unwrap().to_string(),
         firmware_path: firmware_path.unwrap().to_str().unwrap().to_string(),
