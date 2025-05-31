@@ -1,4 +1,8 @@
-use std::{os::unix::process::CommandExt, process::Command};
+#[cfg(target_os = "macos")]
+use std::{os::unix::process::CommandExt};
+#[cfg(target_os = "windows")]
+use std::{os::windows::process::CommandExt, process::Stdio};
+
 use ftlog::*;
 
 pub fn restart_esp32(tool_path: String, port: String) -> std::io::Result<()> {
