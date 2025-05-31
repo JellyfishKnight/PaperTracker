@@ -4,13 +4,22 @@ mod utils;
 mod serial;
 mod websocket;
 mod integration;
+mod algorithm;
 
 use paper_tracker_config::config::init_config;
-use tauri::Manager;
 use updater::version_check::check_for_updates;
-use integration::serial_commands::{write_ssid_and_password, write_brightness, restart_esp32, flash_esp32};
-use integration::video_commands::{update_stream_ip, is_device_connected, get_device_status};
-use integration::image_ui_updater::{ImageStreamState, start_face_stream, start_left_eye_stream, start_right_eye_stream};
+use ftlog::*;
+use integration::interface::{
+    restart_esp32, 
+    flash_esp32, 
+    write_wifi_info, 
+    start_face_image_stream,
+    start_left_eye_image_stream,
+    start_right_eye_image_stream,
+    set_brightness,
+    set_rotation,
+};
+use integration::init::init_device;
 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -18,32 +27,33 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            // build logger
+            ftlog::Builder::new()
+                .max_log_level(ftlog::LevelFilter::Debug)
+                .unbounded()
+                .print_omitted_count(true)
+                .build()
+                .expect("Failed to initialize logger")
+                .init()
+                .expect("Failed to set logger");
+            ftlog::logger().flush();
+            // create config 
             init_config(app.handle())?;
-            // Initialize services
-            let (serial_state, video_state) = integration::init_services();
-            let image_stream_state = ImageStreamState::default();
-            // Register states
-            app.manage(serial_state);
-            app.manage(video_state);
-            app.manage(image_stream_state);
-
-            
-            println!("Application initialized successfully");
+            init_device(app.handle());            
+            info!("Application initialized successfully");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             check_for_updates,
-            write_ssid_and_password,
-            write_brightness,
             restart_esp32,
             flash_esp32,
-            update_stream_ip,
-            is_device_connected,
-            get_device_status,
-            start_face_stream,
-            start_left_eye_stream,
-            start_right_eye_stream,
-        ])
+            write_wifi_info,
+            start_face_image_stream,
+            start_left_eye_image_stream,
+            start_right_eye_image_stream,
+            set_brightness,
+            set_rotation,
+            ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

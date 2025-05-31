@@ -1,4 +1,4 @@
-<!-- EyeTrackerWindow.vue -->
+<!-- EyeTrackerWindow.vue - 使用可复用滑动条组件 -->
 <template>
   <div class="eye-tracker-window">
     <!-- 子导航栏 -->
@@ -23,10 +23,8 @@
       </div>
     </div>
 
-    <!-- 内容页面 -->
-    <!-- 主追踪页面内容 -->
-    <div v-if="currentPage === 'settings'" class="page-content">
-      <!-- Settings page content... -->
+    <!-- 追踪页面内容 -->
+    <div v-if="currentPage === 'tracking'" class="page-content">
       <div class="eye-tracking-layout">
         <!-- 左眼部分 -->
         <div class="eye-section">
@@ -83,8 +81,7 @@
     </div>
 
     <!-- 设置页面内容 -->
-    <div v-if="currentPage === 'tracking'" class="page-content settings-page">
-      <!-- Tracking page content... -->
+    <div v-if="currentPage === 'settings'" class="page-content settings-page">
       <div class="settings-layout">
         <div class="left-column">
           <div class="camera-views">
@@ -147,38 +144,55 @@
             </div>
           </div>
           
+          <!-- 使用可复用滑动条组件替换原来的滑动条 -->
           <div class="adjustment-controls">
-            <div class="slider-group">
-              <label>左眼补光</label>
-              <div class="slider" @click="updateSlider($event, 'leftBrightness')">
-                <div class="track" :style="{ width: leftBrightness + '%' }"></div>
-                <div class="thumb" :style="{ left: leftBrightness + '%' }"></div>
-              </div>
-            </div>
+            <DraggableSlider
+              v-model="leftBrightness"
+              label="左眼补光"
+              unit="%"
+              :min="0"
+              :max="100"
+              :step="1"
+              :throttle-ms="50"
+              @input="handleLeftBrightnessRealTimeUpdate"
+              @change="handleLeftBrightnessChange"
+            />
             
-            <div class="slider-group">
-              <label>右眼补光</label>
-              <div class="slider" @click="updateSlider($event, 'rightBrightness')">
-                <div class="track" :style="{ width: rightBrightness + '%' }"></div>
-                <div class="thumb" :style="{ left: rightBrightness + '%' }"></div>
-              </div>
-            </div>
+            <DraggableSlider
+              v-model="rightBrightness"
+              label="右眼补光"
+              unit="%"
+              :min="0"
+              :max="100"
+              :step="1"
+              :throttle-ms="50"
+              @input="handleRightBrightnessRealTimeUpdate"
+              @change="handleRightBrightnessChange"
+            />
             
-            <div class="slider-group">
-              <label>左眼旋转角度</label>
-              <div class="slider" @click="updateSlider($event, 'leftRotation')">
-                <div class="track" :style="{ width: leftRotation / 10.8 + '%' }"></div>
-                <div class="thumb" :style="{ left: leftRotation / 10.8 + '%' }"></div>
-              </div>
-            </div>
+            <DraggableSlider
+              v-model="leftRotation"
+              label="左眼旋转角度"
+              unit="°"
+              :min="0"
+              :max="360"
+              :step="1"
+              :throttle-ms="50"
+              @input="handleLeftRotationRealTimeUpdate"
+              @change="handleLeftRotationChange"
+            />
             
-            <div class="slider-group">
-              <label>右眼旋转角度</label>
-              <div class="slider" @click="updateSlider($event, 'rightRotation')">
-                <div class="track" :style="{ width: rightRotation / 10.8 + '%' }"></div>
-                <div class="thumb" :style="{ left: rightRotation / 10.8 + '%' }"></div>
-              </div>
-            </div>
+            <DraggableSlider
+              v-model="rightRotation"
+              label="右眼旋转角度"
+              unit="°"
+              :min="0"
+              :max="360"
+              :step="1"
+              :throttle-ms="50"
+              @input="handleRightRotationRealTimeUpdate"
+              @change="handleRightRotationChange"
+            />
           </div>
         </div>
       </div>
@@ -192,6 +206,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import DraggableSlider from './DraggableSlider.vue'; // 导入可复用滑动条组件
 import deviceService from '../functional/deviceService';
 import { invoke } from '@tauri-apps/api/core';
 import messageService from '../functional/pop_window/messageService';
@@ -221,11 +236,11 @@ const rightEyeIP = ref<string>('');
 const leftEyeOpenness = ref<number>(30);
 const rightEyeOpenness = ref<number>(70);
 
-// 滑块值
-const leftBrightness = ref<number>(50);
-const rightBrightness = ref<number>(50);
-const leftRotation = ref<number>(540); // 0-1080范围的中间值
-const rightRotation = ref<number>(540); // 0-1080范围的中间值
+// 滑块值 - 使用更合理的初始值和范围
+const leftBrightness = ref<number>(50);     // 0-100%
+const rightBrightness = ref<number>(50);    // 0-100%
+const leftRotation = ref<number>(0);        // 0-360°
+const rightRotation = ref<number>(0);       // 0-360°
 
 // 选项
 const energyMode = ref<EnergyMode>('normal');
@@ -233,65 +248,115 @@ const energyMode = ref<EnergyMode>('normal');
 // 日志内容
 const logContent = ref<string>('系统启动中...\n连接设备...');
 
-// 方法
+// 添加日志的辅助函数
+function appendLog(message: string): void {
+  const timestamp = new Date().toLocaleTimeString();
+  logContent.value += `\n[${timestamp}] ${message}`;
+  
+  // 自动滚动到底部
+  setTimeout(() => {
+    const logArea = document.querySelector('.log-area textarea') as HTMLTextAreaElement;
+    if (logArea) {
+      logArea.scrollTop = logArea.scrollHeight;
+    }
+  }, 10);
+}
+
+// 左眼亮度处理函数
+function handleLeftBrightnessRealTimeUpdate(value: number): void {
+  // 实时更新左眼亮度
+  invoke('set_left_brightness', { brightness: Math.round(value) })
+    .catch((error) => {
+      console.error(`左眼亮度实时调整失败: ${error}`);
+    });
+}
+
+function handleLeftBrightnessChange(value: number): void {
+  appendLog(`左眼补光调整为: ${Math.round(value)}%`);
+}
+
+// 右眼亮度处理函数
+function handleRightBrightnessRealTimeUpdate(value: number): void {
+  // 实时更新右眼亮度
+  invoke('set_right_brightness', { brightness: Math.round(value) })
+    .catch((error) => {
+      console.error(`右眼亮度实时调整失败: ${error}`);
+    });
+}
+
+function handleRightBrightnessChange(value: number): void {
+  appendLog(`右眼补光调整为: ${Math.round(value)}%`);
+}
+
+// 左眼旋转角度处理函数
+function handleLeftRotationRealTimeUpdate(value: number): void {
+  // 实时更新左眼旋转角度，提供连续旋转效果
+  invoke('set_rotation', { rotation: value, deviceType: 2 }) // 2 = 左眼
+    .catch((error) => {
+      console.error(`左眼旋转角度实时调整失败: ${error}`);
+    });
+}
+
+function handleLeftRotationChange(value: number): void {
+  appendLog(`左眼旋转角度调整为: ${Math.round(value)}°`);
+}
+
+// 右眼旋转角度处理函数
+function handleRightRotationRealTimeUpdate(value: number): void {
+  // 实时更新右眼旋转角度，提供连续旋转效果
+  invoke('set_rotation', { rotation: value, deviceType: 3 }) // 3 = 右眼
+    .catch((error) => {
+      console.error(`右眼旋转角度实时调整失败: ${error}`);
+    });
+}
+
+function handleRightRotationChange(value: number): void {
+  appendLog(`右眼旋转角度调整为: ${Math.round(value)}°`);
+}
+
+// 眼部校准相关方法
 function calibrateLeftEye(): void {
-  logContent.value += '\n开始左眼校准...';
+  appendLog('开始左眼校准...');
   // 实现左眼校准逻辑
 }
 
 function centerLeftEye(): void {
-  logContent.value += '\n设置左眼中心...';
+  appendLog('设置左眼中心...');
   // 实现左眼中心逻辑
 }
 
 function calibrateRightEye(): void {
-  logContent.value += '\n开始右眼校准...';
+  appendLog('开始右眼校准...');
   // 实现右眼校准逻辑
 }
 
 function centerRightEye(): void {
-  logContent.value += '\n设置右眼中心...';
+  appendLog('设置右眼中心...');
   // 实现右眼中心逻辑
 }
 
+// 其他功能函数
 function sendWifiSettings(): void {
   // 读取SSID和密码
-  invoke('write_ssid_and_password', { ssid: ssid.value, password: password.value })
+  invoke('write_wifi_info', { ssid: ssid.value, password: password.value })
     .then(() => {
       messageService.info("设置WIFI成功，请重启设备");
+      appendLog("设置WIFI成功，请重启设备");
     })
     .catch((error) => {
       messageService.error("设置WIFI失败: " + error);
+      appendLog(`设置WIFI失败: ${error}`);
     });
 }
 
 function flashFirmware(): void {
+  appendLog("开始刷写固件...");
   deviceService.flashESP32();
 }
 
 function restartDevice(): void {
+  appendLog("正在重启设备...");
   deviceService.restartESP32();
-}
-
-function updateSlider(event: MouseEvent, sliderName: 'leftBrightness' | 'rightBrightness' | 'leftRotation' | 'rightRotation'): void {
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const percentage = Math.min(100, Math.max(0, (x / rect.width) * 100));
-  
-  switch(sliderName) {
-    case 'leftBrightness':
-      leftBrightness.value = percentage;
-      break;
-    case 'rightBrightness':
-      rightBrightness.value = percentage;
-      break;
-    case 'leftRotation':
-      leftRotation.value = percentage * 10.8; // 缩放到0-1080范围
-      break;
-    case 'rightRotation':
-      rightRotation.value = percentage * 10.8; // 缩放到0-1080范围
-      break;
-  }
 }
 </script>
 
@@ -334,7 +399,6 @@ function updateSlider(event: MouseEvent, sliderName: 'leftBrightness' | 'rightBr
   gap: 15px;
 }
 
-/* Additional styles... */
 /* 眼部追踪页面样式 */
 .eye-tracking-layout {
   display: flex;
@@ -410,6 +474,17 @@ function updateSlider(event: MouseEvent, sliderName: 'leftBrightness' | 'rightBr
   border: 1px solid var(--border-color);
 }
 
+.no-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #333;
+  color: #aaa;
+  text-align: center;
+  width: 100%;
+  height: 100%;
+}
+
 .action-panel {
   display: flex;
   flex-direction: column;
@@ -477,17 +552,28 @@ function updateSlider(event: MouseEvent, sliderName: 'leftBrightness' | 'rightBr
 .adjustment-controls {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 15px;
 }
 
-.slider-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.progress-bar {
+  width: 100%;
+  height: 25px;
+  background-color: var(--widget-background);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
 }
 
-.slider-group label {
-  min-width: 100px;
+.progress-bar-fill {
+  height: 100%;
+  background-color: var(--highlight-color);
+  border-radius: 5px;
+  transition: width 0.3s ease;
+}
+
+.status-label {
+  font-style: italic;
+  font-weight: bold;
 }
 
 .log-area {
@@ -500,5 +586,11 @@ function updateSlider(event: MouseEvent, sliderName: 'leftBrightness' | 'rightBr
   height: 120px;
   padding: 10px;
   resize: none;
+  background-color: var(--widget-background);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.9rem;
 }
 </style>

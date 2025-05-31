@@ -154,10 +154,13 @@ const deviceService = {
       }
     });
     
-    try {
-      // 调用后端重启函数
-      await invoke('restart_esp32');
-    } catch (error) {
+    // 调用后端重启函数
+    await invoke('restart_esp32').then(() => {
+      messageService.info('重启ESP32设备成功', '操作完成');
+      if (this.progressControl) {
+        this.progressControl.updateProgress(100);
+      }
+    }).catch((error) => {;
       console.error('调用重启ESP32函数失败:', error);
       
       // 显示错误消息
@@ -168,7 +171,7 @@ const deviceService = {
         this.progressControl.cancel();
         this.progressControl = null;
       }
-    }
+    });
   },
   
   // 刷写ESP32固件
