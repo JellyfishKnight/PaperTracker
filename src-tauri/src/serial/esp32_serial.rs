@@ -150,6 +150,9 @@ impl<R: Runtime> Esp32Serial<R> {
             // Read data from the serial port
             let mut buffer = vec![0u8; 1024];
             if let Some(ref mut port) = port {
+                if port.bytes_to_read().unwrap_or(0) < 4 {
+                    continue; 
+                }
                 match port.read(&mut buffer) {
                     Ok(bytes_read) => {
                         if bytes_read > 0 {
@@ -165,6 +168,7 @@ impl<R: Runtime> Esp32Serial<R> {
                     }
                 }
             }
+            std::thread::sleep(std::time::Duration::from_millis(100));
         }
     }
 
